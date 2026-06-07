@@ -71,13 +71,11 @@ BEGIN
   UPDATE public.profiles
   SET
     role = new_role,
-    teacher_code = COALESCE(
-      teacher_code,
-      CASE
-        WHEN new_role = 'teacher'::public.role THEN public.generate_teacher_code()
-        ELSE NULL
-      END
-    )
+    teacher_code = CASE
+      WHEN new_role = 'teacher'::public.role THEN
+        COALESCE(teacher_code, public.generate_teacher_code())
+      ELSE NULL
+    END
   WHERE id = target_id;
 END;
 $$;
@@ -85,9 +83,31 @@ $$;
 GRANT EXECUTE ON FUNCTION public.set_user_role(uuid, public.role) TO authenticated;
 
 -- ---------------------------------------------------------------------------
+-- profile_names view: id + full_name + role only (teacher_code never exposed).
+--
+-- Readable by all authenticated users via GRANT SELECT on the view. The view uses
+-- security_invoker = false (PostgreSQL default for views): queries run with the
+-- view owner's privileges, not the caller's. The owner (postgres in Supabase) is
+-- the table owner and bypasses RLS on public.profiles, so every row is visible
+-- here. Only id, full_name, role are projected — teacher_code is not a column on
+-- this view and cannot be read through it. Direct SELECT on public.profiles remains
+-- restricted to own-row + admin (see schema.sql / reservations_schema.sql policies).
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE VIEW public.profile_names
+  WITH (security_invoker = false)
+AS
+  SELECT id, full_name, role
+  FROM public.profiles;
+
+GRANT SELECT ON public.profile_names TO authenticated;
+
+-- Remove broad profiles read if applied in a prior migration (closes teacher_code hole).
+DROP POLICY IF EXISTS "Authenticated can read profile names" ON public.profiles;
+
+-- ---------------------------------------------------------------------------
 -- profiles UPDATE: owners may edit full_name etc., but NOT role or teacher_code.
 -- teacher_code is set only by set_user_role / generate_teacher_code (definer).
--- SELECT: unchanged — own row includes teacher_code; admins use select-all policy.
+-- SELECT on profiles: own row + admin all only — use profile_names for display names.
 -- ---------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 

@@ -1,9 +1,9 @@
 import { requireAuth, getProfile, signOut } from './auth.js';
 
 const TABS_BY_ROLE = {
-  student: ['Horario', 'Reservaciones'],
-  teacher: ['Horario', 'Reservar mi espacio', 'Mi perfil'],
-  admin: ['Horario', 'Editar horario', 'Reservaciones semanales', 'Usuarios'],
+  student: ['Horario', 'Reservaciones', 'Espacios de estudio'],
+  teacher: ['Horario', 'Reservar mi espacio', 'Espacios de estudio', 'Mi perfil'],
+  admin: ['Horario', 'Editar horario', 'Reservaciones semanales', 'Usuarios', 'Espacios de estudio'],
 };
 
 const ROLE_LABELS = {
@@ -71,16 +71,35 @@ async function init() {
   renderTabs(profile.role);
   wireLogout();
 
+  const { mountHorario } = await import('./horario-view.js');
+  await mountHorario(profile);
+
+  if (profile.role === 'student' || profile.role === 'teacher') {
+    const { mountStudyBooking } = await import('./study-booking.js');
+    await mountStudyBooking(profile);
+  }
+
   if (profile.role === 'admin') {
     const { mountEditarHorario } = await import('./admin-horario.js');
     await mountEditarHorario(profile);
     const { mountUsuarios } = await import('./admin-usuarios.js');
     await mountUsuarios(profile);
+    const { mountReservacionesSemanales } = await import('./admin-reservaciones.js');
+    await mountReservacionesSemanales(profile);
+    const { mountAdminStudySpaces } = await import('./admin-study-spaces.js');
+    await mountAdminStudySpaces(profile);
   }
 
   if (profile.role === 'teacher') {
     const { mountTeacherProfile } = await import('./teacher-profile.js');
     await mountTeacherProfile(profile);
+    const { mountReservarEspacio } = await import('./teacher-reservar.js');
+    await mountReservarEspacio(profile);
+  }
+
+  if (profile.role === 'student') {
+    const { mountStudentViews } = await import('./student-views.js');
+    await mountStudentViews(profile);
   }
 }
 

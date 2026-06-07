@@ -191,7 +191,7 @@ BEGIN
   SET phase = 'closed'::public.draft_phase
   WHERE phase <> 'closed'::public.draft_phase;
 
-  DELETE FROM public.reservations;
+  DELETE FROM public.reservations WHERE true;
 
   v_teacher_ids := public._assigned_teacher_ids();
 
@@ -281,6 +281,15 @@ BEGIN
     RAISE EXCEPTION 'reservas cerradas';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND role = 'teacher'::public.role
+  ) THEN
+    RAISE EXCEPTION 'solo docentes pueden reservar';
+  END IF;
+
   SELECT * INTO v_slot
   FROM public.timetable_slots
   WHERE id = p_slot_id;
@@ -358,6 +367,15 @@ BEGIN
     RAISE EXCEPTION 'reservas cerradas';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND role = 'teacher'::public.role
+  ) THEN
+    RAISE EXCEPTION 'solo docentes pueden reservar';
+  END IF;
+
   SELECT * INTO v_slot
   FROM public.timetable_slots
   WHERE id = p_slot_id;
@@ -406,6 +424,21 @@ DECLARE
   v_stored_code text;
   v_is_active boolean;
 BEGIN
+  v_session := public.current_session();
+
+  IF v_session.id IS NULL OR v_session.phase NOT IN ('live'::public.draft_phase, 'open'::public.draft_phase) THEN
+    RAISE EXCEPTION 'reservas cerradas';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND role = 'teacher'::public.role
+  ) THEN
+    RAISE EXCEPTION 'solo docentes pueden confirmar';
+  END IF;
+
   SELECT p.teacher_code
   INTO v_stored_code
   FROM public.profiles p
@@ -413,12 +446,6 @@ BEGIN
 
   IF v_stored_code IS NULL OR v_stored_code <> p_code THEN
     RAISE EXCEPTION 'código incorrecto';
-  END IF;
-
-  v_session := public.current_session();
-
-  IF v_session.id IS NULL OR v_session.phase NOT IN ('live'::public.draft_phase, 'open'::public.draft_phase) THEN
-    RAISE EXCEPTION 'reservas cerradas';
   END IF;
 
   IF v_session.phase = 'live'::public.draft_phase THEN
@@ -440,10 +467,6 @@ BEGIN
   SET confirmed = true
   WHERE teacher_id = auth.uid()
     AND session_id = v_session.id;
-
-  IF v_session.phase = 'live'::public.draft_phase THEN
-    PERFORM public._advance_draft_turn(v_session.id);
-  END IF;
 END;
 $$;
 
@@ -491,7 +514,7 @@ BEGIN
     RAISE EXCEPTION 'only admins can reset draft';
   END IF;
 
-  DELETE FROM public.reservations;
+  DELETE FROM public.reservations WHERE true;
 
   UPDATE public.draft_sessions
   SET phase = 'closed'::public.draft_phase
@@ -532,6 +555,9 @@ CREATE POLICY "Authenticated can select draft_turns"
 DROP POLICY IF EXISTS "Teachers and admins can insert reservations" ON public.reservations;
 DROP POLICY IF EXISTS "Teachers and admins can update reservations" ON public.reservations;
 DROP POLICY IF EXISTS "Teachers and admins can delete reservations" ON public.reservations;
+DROP POLICY IF EXISTS "Admins can insert reservations" ON public.reservations;
+DROP POLICY IF EXISTS "Admins can update reservations" ON public.reservations;
+DROP POLICY IF EXISTS "Admins can delete reservations" ON public.reservations;
 
 CREATE POLICY "Admins can insert reservations"
   ON public.reservations

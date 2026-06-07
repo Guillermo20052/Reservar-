@@ -11,13 +11,22 @@ const WEEKDAY_LABELS = {
   viernes: 'Viernes',
 };
 
-/** @type {{ profile: object, grade: string, classes: object[], teachers: object[], slots: object[], editingSlotId: string | null }} */
+/** @type {{
+ *   profile: object,
+ *   grade: string,
+ *   classes: object[],
+ *   teachers: object[],
+ *   slots: object[],
+ *   slotCountByClass: Record<string, number>,
+ *   editingSlotId: string | null,
+ * }} */
 const state = {
   profile: null,
   grade: '10mo',
   classes: [],
   teachers: [],
   slots: [],
+  slotCountByClass: {},
   editingSlotId: null,
 };
 
@@ -52,6 +61,16 @@ function teacherNameById(id) {
   return state.teachers.find((t) => t.id === id)?.full_name ?? 'Sin asignar';
 }
 
+function slotCountForClass(classId) {
+  return state.slotCountByClass[classId] ?? 0;
+}
+
+function slotCountLabel(count) {
+  if (count === 0) return '· Sin franjas en el horario';
+  if (count === 1) return '· 1 franja en el horario';
+  return `· ${count} franjas en el horario`;
+}
+
 async function fetchClasses() {
   const { data, error } = await supabase.from('classes').select('id, name').order('name');
   if (error) throw error;
@@ -77,16 +96,37 @@ async function fetchSlots(grade) {
   return data ?? [];
 }
 
+async function fetchSlotCountsByClass() {
+  const { data, error } = await supabase.from('timetable_slots').select('class_id');
+  if (error) throw error;
+  /** @type {Record<string, number>} */
+  const counts = {};
+  for (const row of data ?? []) {
+    counts[row.class_id] = (counts[row.class_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
 function buildPanelShell() {
   return `
     <h2 class="panel-title">Editar horario</h2>
+
+    <div id="horario-info" class="horario-info">
+      <p class="horario-info-text">
+        El horario es fijo para el semestre. Cada semana solo se reasignan los espacios
+        (pestaña <strong>Reservaciones semanales</strong>).
+      </p>
+      <button type="button" class="horario-info-dismiss" id="horario-info-dismiss" aria-label="Cerrar">×</button>
+    </div>
+
     <div id="horario-alert" class="alert alert-error" hidden></div>
 
-    <section class="horario-section">
-      <h3 class="horario-section-title">Clases</h3>
+    <section class="horario-section horario-step">
+      <h3 class="horario-step-title">1 · Materias</h3>
+      <p class="horario-step-lede">Define las materias que existen. Luego colócalas en el horario.</p>
       <form id="horario-create-class" class="horario-inline-form">
         <div class="form-group horario-inline-field">
-          <label for="horario-new-class">Nueva clase</label>
+          <label for="horario-new-class">Nueva materia</label>
           <input class="input" id="horario-new-class" type="text" placeholder="Ej. Física, Matemáticas" required>
         </div>
         <button type="submit" class="btn btn-primary">Crear</button>
@@ -94,52 +134,68 @@ function buildPanelShell() {
       <ul id="horario-classes-list" class="horario-classes-list"></ul>
     </section>
 
-    <section class="horario-section">
-      <h3 class="horario-section-title">Grado</h3>
-      <select class="input horario-grade-select" id="horario-grade">
-        ${GRADES.map((g) => `<option value="${g}">${g}</option>`).join('')}
-      </select>
-    </section>
+    <section class="horario-section horario-step">
+      <h3 class="horario-step-title">2 · Horario por grado</h3>
+      <p class="horario-step-lede">Elige un grado, coloca cada materia en su día y hora, y asigna la maestra a cargo.</p>
 
-    <section class="horario-section">
-      <h3 class="horario-section-title">Horario semanal</h3>
-      <div id="horario-grid" class="horario-grid"></div>
-    </section>
+      <div id="horario-step2-gate" class="horario-step-gate" hidden>
+        <p>Primero crea materias arriba.</p>
+      </div>
 
-    <section class="horario-section">
-      <h3 class="horario-section-title" id="horario-form-title">Agregar clase al horario</h3>
-      <form id="horario-slot-form" class="horario-slot-form">
-        <div class="horario-form-grid">
-          <div class="form-group">
-            <label for="horario-slot-class">Clase</label>
-            <select class="input" id="horario-slot-class" required></select>
+      <div id="horario-step2-content" class="horario-step2-content">
+        <div class="horario-grade-bar">
+          <label class="horario-grade-label" for="horario-grade">Grado</label>
+          <select class="input horario-grade-select" id="horario-grade">
+            ${GRADES.map((g) => `<option value="${g}">${g}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="horario-schedule-unit">
+          <div class="horario-placement-block" id="horario-placement-block">
+            <h4 class="horario-form-heading" id="horario-form-title">Colocar en el horario</h4>
+            <p id="horario-form-grade" class="horario-form-grade">Grado: <strong>10mo</strong></p>
+            <form id="horario-slot-form" class="horario-slot-form">
+              <div class="horario-form-grid">
+                <div class="form-group">
+                  <label for="horario-slot-class">Materia</label>
+                  <select class="input" id="horario-slot-class" required></select>
+                </div>
+                <div class="form-group">
+                  <label for="horario-slot-day">Día</label>
+                  <select class="input" id="horario-slot-day" required>
+                    ${WEEKDAYS.map((d) => `<option value="${d}">${WEEKDAY_LABELS[d]}</option>`).join('')}
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="horario-slot-start">Inicio</label>
+                  <input class="input" id="horario-slot-start" type="time" required>
+                </div>
+                <div class="form-group">
+                  <label for="horario-slot-end">Fin</label>
+                  <input class="input" id="horario-slot-end" type="time" required>
+                </div>
+                <div class="form-group horario-teacher-field">
+                  <label for="horario-slot-teacher">Maestra a cargo</label>
+                  <select class="input" id="horario-slot-teacher">
+                    <option value="">Sin asignar</option>
+                  </select>
+                </div>
+              </div>
+              <div class="horario-form-actions">
+                <button type="submit" class="btn btn-primary" id="horario-slot-submit">Agregar a 10mo</button>
+                <button type="button" class="btn btn-ghost" id="horario-slot-cancel" hidden>Cancelar edición</button>
+              </div>
+            </form>
           </div>
-          <div class="form-group">
-            <label for="horario-slot-day">Día</label>
-            <select class="input" id="horario-slot-day" required>
-              ${WEEKDAYS.map((d) => `<option value="${d}">${WEEKDAY_LABELS[d]}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="horario-slot-start">Inicio</label>
-            <input class="input" id="horario-slot-start" type="time" required>
-          </div>
-          <div class="form-group">
-            <label for="horario-slot-end">Fin</label>
-            <input class="input" id="horario-slot-end" type="time" required>
-          </div>
-          <div class="form-group">
-            <label for="horario-slot-teacher">Maestra (opcional)</label>
-            <select class="input" id="horario-slot-teacher">
-              <option value="">Sin asignar</option>
-            </select>
+
+          <div id="horario-grade-empty" class="horario-grade-empty" hidden></div>
+
+          <div class="horario-grid-wrap">
+            <h4 class="horario-grid-title">Vista semanal</h4>
+            <div id="horario-grid" class="horario-grid"></div>
           </div>
         </div>
-        <div class="horario-form-actions">
-          <button type="submit" class="btn btn-primary" id="horario-slot-submit">Agregar</button>
-          <button type="button" class="btn btn-ghost" id="horario-slot-cancel" hidden>Cancelar edición</button>
-        </div>
-      </form>
+      </div>
     </section>
   `;
 }
@@ -149,16 +205,45 @@ function renderClassesList() {
   if (!list) return;
 
   if (!state.classes.length) {
-    list.innerHTML = '<li class="horario-empty">No hay clases creadas.</li>';
+    list.innerHTML = '<li class="horario-empty">No hay materias creadas.</li>';
     return;
   }
 
-  list.innerHTML = state.classes.map((c) => `
-    <li class="horario-class-item">
-      <span>${escapeHtml(c.name)}</span>
-      <button type="button" class="btn btn-ghost horario-btn-sm" data-delete-class="${c.id}">Eliminar</button>
-    </li>
-  `).join('');
+  list.innerHTML = state.classes.map((c) => {
+    const count = slotCountForClass(c.id);
+    return `
+      <li class="horario-class-item">
+        <div class="horario-class-main">
+          <span class="horario-class-name">${escapeHtml(c.name)}</span>
+          <span class="horario-class-meta">${slotCountLabel(count)}</span>
+        </div>
+        <button type="button" class="btn btn-ghost horario-btn-sm" data-delete-class="${c.id}">Eliminar</button>
+      </li>
+    `;
+  }).join('');
+}
+
+function renderStep2Gate() {
+  const gate = document.getElementById('horario-step2-gate');
+  const content = document.getElementById('horario-step2-content');
+  if (!gate || !content) return;
+
+  const hasClasses = state.classes.length > 0;
+  gate.hidden = hasClasses;
+  content.hidden = !hasClasses;
+}
+
+function renderGradeEmptyHint() {
+  const el = document.getElementById('horario-grade-empty');
+  if (!el) return;
+
+  if (state.classes.length && !state.slots.length) {
+    el.textContent = `Aún no hay clases en el horario de ${state.grade}. Usa el formulario para colocar una.`;
+    el.hidden = false;
+  } else {
+    el.hidden = true;
+    el.textContent = '';
+  }
 }
 
 function renderWeeklyGrid() {
@@ -171,19 +256,29 @@ function renderWeeklyGrid() {
       .sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
 
     const cards = daySlots.length
-      ? daySlots.map((slot) => `
-          <article class="horario-slot-card">
-            <div class="horario-slot-main">
-              <strong>${escapeHtml(classNameById(slot.class_id))}</strong>
-              <span class="horario-slot-time">${formatTime(slot.start_time)} – ${formatTime(slot.end_time)}</span>
-              <span class="horario-slot-teacher">${escapeHtml(teacherNameById(slot.teacher_id))}</span>
-            </div>
-            <div class="horario-slot-actions">
-              <button type="button" class="btn btn-ghost horario-btn-sm" data-edit-slot="${slot.id}">Editar</button>
-              <button type="button" class="btn btn-ghost horario-btn-sm" data-delete-slot="${slot.id}">Eliminar</button>
-            </div>
-          </article>
-        `).join('')
+      ? daySlots.map((slot) => {
+          const hasTeacher = Boolean(slot.teacher_id);
+          const teacherBlock = hasTeacher
+            ? `<span class="horario-slot-teacher">${escapeHtml(teacherNameById(slot.teacher_id))}</span>`
+            : `
+              <span class="horario-slot-teacher horario-slot-unassigned">Sin asignar</span>
+              <button type="button" class="btn btn-ghost horario-btn-sm horario-assign-btn" data-assign-teacher="${slot.id}">Asignar maestra</button>
+            `;
+
+          return `
+            <article class="horario-slot-card${hasTeacher ? '' : ' horario-slot-card-unassigned'}">
+              <div class="horario-slot-main">
+                <strong>${escapeHtml(classNameById(slot.class_id))}</strong>
+                <span class="horario-slot-time">${formatTime(slot.start_time)} – ${formatTime(slot.end_time)}</span>
+                ${teacherBlock}
+              </div>
+              <div class="horario-slot-actions">
+                <button type="button" class="btn btn-ghost horario-btn-sm" data-edit-slot="${slot.id}">Editar</button>
+                <button type="button" class="btn btn-ghost horario-btn-sm" data-delete-slot="${slot.id}">Eliminar</button>
+              </div>
+            </article>
+          `;
+        }).join('')
       : '<p class="horario-day-empty">Sin franjas</p>';
 
     return `
@@ -205,7 +300,7 @@ function populateFormSelects() {
 
   classSelect.innerHTML = state.classes.length
     ? state.classes.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')
-    : '<option value="" disabled selected>No hay clases</option>';
+    : '<option value="" disabled selected>No hay materias</option>';
 
   teacherSelect.innerHTML = [
     '<option value="">Sin asignar</option>',
@@ -217,6 +312,22 @@ function populateFormSelects() {
   }
   if (prevTeacher && state.teachers.some((t) => t.id === prevTeacher)) {
     teacherSelect.value = prevTeacher;
+  }
+}
+
+function updateFormChrome() {
+  const gradeEl = document.getElementById('horario-form-grade');
+  if (gradeEl) {
+    gradeEl.innerHTML = `Grado: <strong>${escapeHtml(state.grade)}</strong>`;
+  }
+
+  const submit = document.getElementById('horario-slot-submit');
+  if (!submit) return;
+
+  if (state.editingSlotId) {
+    submit.textContent = `Guardar cambios en ${state.grade}`;
+  } else {
+    submit.textContent = `Agregar a ${state.grade}`;
   }
 }
 
@@ -232,34 +343,49 @@ function clearSlotForm() {
   state.editingSlotId = null;
   const form = document.getElementById('horario-slot-form');
   form?.reset();
-  document.getElementById('horario-form-title').textContent = 'Agregar clase al horario';
-  document.getElementById('horario-slot-submit').textContent = 'Agregar';
+  document.getElementById('horario-form-title').textContent = 'Colocar en el horario';
   document.getElementById('horario-slot-cancel').hidden = true;
+  updateFormChrome();
 }
 
-function prefillSlotForm(slot) {
+function prefillSlotForm(slot, { focusTeacher = false } = {}) {
   state.editingSlotId = slot.id;
   document.getElementById('horario-slot-class').value = slot.class_id;
   document.getElementById('horario-slot-day').value = slot.day;
   document.getElementById('horario-slot-start').value = formatTime(slot.start_time);
   document.getElementById('horario-slot-end').value = formatTime(slot.end_time);
   document.getElementById('horario-slot-teacher').value = slot.teacher_id ?? '';
-  document.getElementById('horario-form-title').textContent = 'Editar franja del horario';
-  document.getElementById('horario-slot-submit').textContent = 'Guardar cambios';
+  document.getElementById('horario-form-title').textContent = 'Editar franja';
   document.getElementById('horario-slot-cancel').hidden = false;
-  document.getElementById('horario-slot-form')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  updateFormChrome();
+
+  document.getElementById('horario-placement-block')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  if (focusTeacher) {
+    window.setTimeout(() => {
+      document.getElementById('horario-slot-teacher')?.focus();
+    }, 200);
+  }
 }
 
 async function refreshAll() {
   state.classes = await fetchClasses();
   state.teachers = await fetchTeachers();
   state.slots = await fetchSlots(state.grade);
+  state.slotCountByClass = await fetchSlotCountsByClass();
   renderClassesList();
+  renderStep2Gate();
+  renderGradeEmptyHint();
   renderWeeklyGrid();
   populateFormSelects();
+  updateFormChrome();
 }
 
 function wireEvents(panel) {
+  panel.querySelector('#horario-info-dismiss')?.addEventListener('click', () => {
+    document.getElementById('horario-info')?.remove();
+  });
+
   panel.querySelector('#horario-create-class').addEventListener('submit', async (e) => {
     e.preventDefault();
     hideAlert();
@@ -276,7 +402,7 @@ function wireEvents(panel) {
       input.value = '';
       await refreshAll();
     } catch (err) {
-      showAlert(err.message || 'No se pudo crear la clase.');
+      showAlert(err.message || 'No se pudo crear la materia.');
     }
   });
 
@@ -286,7 +412,9 @@ function wireEvents(panel) {
     clearSlotForm();
     try {
       state.slots = await fetchSlots(state.grade);
+      renderGradeEmptyHint();
       renderWeeklyGrid();
+      updateFormChrome();
     } catch (err) {
       showAlert(err.message || 'No se pudo cargar el horario.');
     }
@@ -303,7 +431,7 @@ function wireEvents(panel) {
     const teacherVal = document.getElementById('horario-slot-teacher').value;
 
     if (!classId) {
-      showAlert('Crea al menos una clase antes de agregar al horario.');
+      showAlert('Crea al menos una materia antes de agregar al horario.');
       return;
     }
     if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
@@ -332,6 +460,7 @@ function wireEvents(panel) {
         const { error } = await supabase.from('timetable_slots').insert(payload);
         if (error) throw error;
         document.getElementById('horario-slot-form').reset();
+        updateFormChrome();
       }
       await refreshAll();
     } catch (err) {
@@ -351,7 +480,7 @@ function wireEvents(panel) {
 
     const classId = btn.dataset.deleteClass;
     const className = classNameById(classId);
-    if (!confirm(`¿Eliminar la clase «${className}»? También se eliminarán sus franjas del horario.`)) {
+    if (!confirm(`¿Eliminar la materia «${className}»? También se eliminarán sus franjas del horario.`)) {
       return;
     }
 
@@ -364,13 +493,21 @@ function wireEvents(panel) {
       }
       await refreshAll();
     } catch (err) {
-      showAlert(err.message || 'No se pudo eliminar la clase.');
+      showAlert(err.message || 'No se pudo eliminar la materia.');
     }
   });
 
   panel.querySelector('#horario-grid').addEventListener('click', async (e) => {
+    const assignBtn = e.target.closest('[data-assign-teacher]');
     const editBtn = e.target.closest('[data-edit-slot]');
     const deleteBtn = e.target.closest('[data-delete-slot]');
+
+    if (assignBtn) {
+      hideAlert();
+      const slot = state.slots.find((s) => s.id === assignBtn.dataset.assignTeacher);
+      if (slot) prefillSlotForm(slot, { focusTeacher: true });
+      return;
+    }
 
     if (editBtn) {
       hideAlert();
@@ -405,6 +542,7 @@ export async function mountEditarHorario(profile) {
   state.profile = profile;
   state.grade = '10mo';
   state.editingSlotId = null;
+  state.slotCountByClass = {};
 
   panel.innerHTML = buildPanelShell();
   document.getElementById('horario-grade').value = state.grade;
