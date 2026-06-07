@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reserva tu espacio · Espacios con propósito</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script type="module" src="js/config.js"></script>
+  <script type="module" src="js/supabase.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/reservar.js"></script>
+</head>
+<body>
+  <header class="reserva-header">
+    <div class="reserva-header-inner">
+      <a class="link-brand reserva-back" href="home.html">← Volver a la guía</a>
+      <div class="reserva-user">
+        <span id="user-name" class="reserva-user-name"></span>
+        <span id="user-role" class="reserva-role"></span>
+      </div>
+    </div>
+    <button type="button" class="btn btn-ghost" id="logout-btn">Cerrar sesión</button>
+  </header>
+
+  <main class="reserva-main">
+    <p class="kicker">Redwood High</p>
+    <h1 class="reserva-page-title">Reserva tu <em>espacio</em></h1>
+
+    <div class="tabs reserva-tabs" id="reserva-tabs" role="tablist"></div>
+    <div id="reserva-panels"></div>
+  </main>
+</body>
+</html>
