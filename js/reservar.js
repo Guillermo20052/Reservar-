@@ -1,7 +1,7 @@
 import { requireAuth, getProfile, signOut } from './auth.js';
 
 const TABS_BY_ROLE = {
-  student: ['Horario', 'Reservaciones', 'Espacios de estudio'],
+  student: ['Horario', 'Espacios de estudio'],
   teacher: ['Horario', 'Reservar mi espacio', 'Espacios de estudio', 'Mi perfil'],
   admin: ['Horario', 'Editar horario', 'Reservaciones semanales', 'Usuarios', 'Espacios de estudio'],
 };
@@ -95,11 +95,6 @@ async function init() {
     await mountTeacherProfile(profile);
     const { mountReservarEspacio } = await import('./teacher-reservar.js');
     await mountReservarEspacio(profile);
-  }
-
-  if (profile.role === 'student') {
-    const { mountStudentViews } = await import('./student-views.js');
-    await mountStudentViews(profile);
   }
 }
 
