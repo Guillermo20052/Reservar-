@@ -1,14 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script type="module" src="js/config.js"></script>
-<script type="module" src="js/supabase.js"></script>
-<script type="module" src="js/auth.js"></script>
-<script type="module">
-  import { requireAuth } from './js/auth.js';
-  requireAuth();
-</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Espacios con propósito · Guía interactiva · PREPA</title>
@@ -282,9 +274,6 @@ table.mtx tbody tr.hl{background:var(--brand-soft)}
 @media print{
   #sidebar,#hamb,.plano-tools,.tabs{display:none}#main{margin:0}
 }
-.btn-reserva{display:block;margin:0 12px 12px;padding:11px 14px;background:var(--brand);color:var(--on);border-radius:var(--r);
-  font-size:13.5px;font-weight:800;text-align:center;text-decoration:none;transition:filter .14s,box-shadow .14s}
-.btn-reserva:hover{filter:brightness(1.05);box-shadow:var(--shadow)}
 </style>
 </head>
 <body>
@@ -301,7 +290,6 @@ table.mtx tbody tr.hl{background:var(--brand-soft)}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       <input id="search" type="text" placeholder="Buscar espacio, modalidad, materia…" autocomplete="off">
     </div>
-    <a class="btn-reserva" href="reservar.html">Reserva tu espacio</a>
     <div id="searchResults"></div>
     <nav class="sb-nav" id="nav"></nav>
   </aside>
@@ -316,6 +304,7 @@ table.mtx tbody tr.hl{background:var(--brand-soft)}
           <div class="stat"><b>13</b><span>Espacios</span></div>
           <div class="stat"><b>5</b><span>Elementos</span></div>
           <div class="stat"><b>20</b><span>Modalidades</span></div>
+          <div class="stat"><b>17</b><span>Materias</span></div>
         </div>
         <div class="el-intro">
           <h2 class="el-intro-h">Cómo leer esta guía: cuatro elementos, una forma de aprender</h2>
