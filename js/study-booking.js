@@ -158,9 +158,9 @@ function buildPanelShell() {
     <h2 class="panel-title">Espacios de estudio</h2>
     <div id="study-book-alert" class="alert alert-error" hidden></div>
 
-    <section class="study-book-section">
+    <section class="study-book-section app-form-section">
       <h3 class="study-book-section-title">Solicitar espacio</h3>
-      <form id="study-book-form" class="study-book-form">
+      <form id="study-book-form" class="study-book-form app-form-card">
         <div class="form-group study-book-field">
           <label for="study-book-space">Espacio</label>
           <select class="input" id="study-book-space" required>
@@ -298,7 +298,7 @@ function renderOwnBookings() {
           <span class="study-book-own-when">
             ${formatDate(booking.booking_date)} · ${formatTime(booking.start_time)} · ${durationLabel(booking.duration_min)}
           </span>
-          <span class="study-book-badge study-book-status-badge ${statusClass}">${STATUS_LABELS[booking.status] || booking.status}</span>
+          <span class="badge badge--${booking.status} study-book-badge study-book-status-badge ${statusClass}">${STATUS_LABELS[booking.status] || booking.status}</span>
         </div>
         ${cancelBtn ? `<div class="study-book-own-actions">${cancelBtn}</div>` : ''}
       </article>

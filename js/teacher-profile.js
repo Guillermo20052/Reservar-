@@ -61,7 +61,7 @@ function buildPanelShell() {
     </p>
     <div id="teacher-profile-alert" class="alert alert-error" hidden></div>
 
-    <section class="teacher-profile-section">
+    <section class="teacher-profile-section app-form-section">
       <h3 class="teacher-profile-section-title">Mi código</h3>
       <div id="teacher-code-display"></div>
     </section>

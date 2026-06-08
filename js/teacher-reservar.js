@@ -286,13 +286,16 @@ function renderBanner(ui) {
       ? `<p class="reservar-queue">Tu turno: posición ${ui.myTurn.position} (${ui.myTurn.status === 'done' ? 'hecho' : ui.myTurn.status === 'skipped' ? 'saltado' : 'pendiente'})</p>`
       : '';
     return `
-      <div class="reservar-banner reservar-banner-waiting">
+      <div class="reservar-banner reservar-banner-waiting reservar-state reservar-state-waiting">
+        <span class="badge badge--state badge--state-waiting reservar-state-badge">Esperando</span>
         <p class="reservar-banner-title">Esperando tu turno</p>
         <p class="reservar-banner-text">Turno actual: <strong>${escapeHtml(activeName)}</strong></p>
         ${posLine}
-        <div class="reservar-countdown-wrap">
-          <span class="reservar-countdown-label">Tiempo restante del turno</span>
-          <span class="reservar-countdown" id="reservar-countdown">--:--</span>
+        <div class="reservar-countdown-panel">
+          <div class="reservar-countdown-wrap">
+            <span class="reservar-countdown-label">Tiempo restante del turno</span>
+            <span class="reservar-countdown" id="reservar-countdown">--:--</span>
+          </div>
         </div>
       </div>
     `;
@@ -300,12 +303,15 @@ function renderBanner(ui) {
 
   if (ui.kind === 'your-turn') {
     return `
-      <div class="reservar-banner reservar-banner-active">
+      <div class="reservar-banner reservar-banner-active reservar-state reservar-state-your-turn">
+        <span class="badge badge--state badge--state-your-turn reservar-state-badge">Tu turno</span>
         <p class="reservar-banner-title">¡Es tu turno!</p>
         <p class="reservar-banner-text">Elige un espacio para cada franja y confirma con tu código personal.</p>
-        <div class="reservar-countdown-wrap">
-          <span class="reservar-countdown-label">Tiempo restante</span>
-          <span class="reservar-countdown" id="reservar-countdown">--:--</span>
+        <div class="reservar-countdown-panel reservar-countdown-panel--active">
+          <div class="reservar-countdown-wrap">
+            <span class="reservar-countdown-label">Tiempo restante</span>
+            <span class="reservar-countdown" id="reservar-countdown">--:--</span>
+          </div>
         </div>
       </div>
     `;
@@ -313,7 +319,8 @@ function renderBanner(ui) {
 
   if (ui.kind === 'open') {
     return `
-      <div class="reservar-banner reservar-banner-open">
+      <div class="reservar-banner reservar-banner-open reservar-state reservar-state-open">
+        <span class="badge badge--state badge--state-open reservar-state-badge">Fase abierta</span>
         <p class="reservar-banner-title">Fase abierta</p>
         <p class="reservar-banner-text">Puedes completar o confirmar tus franjas restantes sin límite de turno.</p>
       </div>

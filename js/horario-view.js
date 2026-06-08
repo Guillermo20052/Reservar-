@@ -195,15 +195,17 @@ function renderGrid() {
             : 'Sin asignar';
           const spaceName = state.spaceBySlotId[slot.id];
           const spaceHtml = spaceName
-            ? `<span class="horario-view-space">${escapeHtml(spaceName)}</span>`
-            : '<span class="horario-view-space-pending">Espacio por definir</span>';
+            ? `<span class="chip horario-view-space-chip">${escapeHtml(spaceName)}</span>`
+            : '<span class="chip chip--muted horario-view-space-pending">Espacio por definir</span>';
 
           return `
             <article class="horario-slot-card horario-view-slot">
               <div class="horario-slot-main">
-                <strong>${escapeHtml(className)}</strong>
-                <span class="horario-slot-time">${formatTime(slot.start_time)} – ${formatTime(slot.end_time)}</span>
-                <span class="horario-slot-teacher">${escapeHtml(teacher)}</span>
+                <strong class="horario-slot-class">${escapeHtml(className)}</strong>
+                <div class="horario-slot-meta">
+                  <span class="horario-slot-time">${formatTime(slot.start_time)} – ${formatTime(slot.end_time)}</span>
+                  <span class="horario-slot-teacher">${escapeHtml(teacher)}</span>
+                </div>
                 ${spaceHtml}
               </div>
             </article>

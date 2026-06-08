@@ -18,7 +18,9 @@ function slugify(label) {
 
 function renderHeader(profile) {
   document.getElementById('user-name').textContent = profile.full_name || 'Usuario';
-  document.getElementById('user-role').textContent = ROLE_LABELS[profile.role] || profile.role;
+  const roleEl = document.getElementById('user-role');
+  roleEl.textContent = ROLE_LABELS[profile.role] || profile.role;
+  roleEl.className = `reserva-role badge badge--role badge--role-${profile.role}`;
 }
 
 function renderTabs(role) {
@@ -27,7 +29,7 @@ function renderTabs(role) {
   const panelsRoot = document.getElementById('reserva-panels');
 
   tabBar.innerHTML = tabs.map((label, i) =>
-    `<button type="button" class="tab${i === 0 ? ' active' : ''}" role="tab" aria-selected="${i === 0}" data-tab="${slugify(label)}">${label}</button>`
+    `<button type="button" class="tab reserva-tab${i === 0 ? ' active' : ''}" role="tab" aria-selected="${i === 0}" data-tab="${slugify(label)}">${label}</button>`
   ).join('');
 
   panelsRoot.innerHTML = tabs.map((label, i) =>

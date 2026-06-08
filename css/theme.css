@@ -1945,3 +1945,406 @@ button { font-family: inherit; cursor: pointer; }
   background: rgba(0, 0, 0, .04);
 }
 
+/* ---------- reservar app polish (additive) ---------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--paper2);
+  color: var(--muted);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.badge--pending,
+.study-book-status-pending,
+.study-admin-status-pending,
+.draft-badge-pending {
+  color: var(--chiptx);
+  border-color: var(--bd);
+  background: var(--brand-soft);
+}
+
+.badge--approved,
+.badge--active,
+.study-book-status-approved,
+.study-admin-status-approved,
+.study-admin-badge-active,
+.draft-badge-active {
+  color: var(--brand);
+  border-color: var(--bd);
+  background: var(--brand-soft);
+}
+
+.badge--done,
+.draft-badge-done {
+  color: var(--chiptx);
+  border-color: var(--chip);
+  background: var(--paper2);
+}
+
+.badge--rejected,
+.study-book-status-rejected,
+.study-admin-status-rejected {
+  color: var(--brand);
+  border-color: var(--bd);
+  background: var(--soft);
+}
+
+.badge--cancelled,
+.badge--skipped,
+.badge--inactive,
+.study-book-status-cancelled,
+.study-admin-status-cancelled,
+.draft-badge-skipped {
+  color: var(--faint);
+  border-color: var(--line);
+  background: var(--paper2);
+  font-style: italic;
+}
+
+.badge--role {
+  text-transform: uppercase;
+  letter-spacing: .1em;
+}
+
+.badge--role-student,
+.usuarios-badge-student {
+  color: var(--muted);
+  border-color: var(--line);
+  background: #fff;
+}
+
+.badge--role-teacher,
+.usuarios-badge-teacher {
+  color: var(--brand);
+  border-color: var(--bd);
+  background: var(--brand-soft);
+}
+
+.badge--role-admin,
+.usuarios-badge-admin {
+  color: var(--chiptx);
+  border-color: var(--chip);
+  background: var(--soft);
+}
+
+.badge--phase-live,
+.draft-phase-live {
+  color: var(--brand);
+  border-color: var(--bd);
+  background: var(--brand-soft);
+}
+
+.badge--phase-open,
+.draft-phase-open {
+  color: var(--chiptx);
+  border-color: var(--chip);
+  background: var(--soft);
+}
+
+.badge--state-waiting {
+  color: var(--muted);
+  border-color: var(--line);
+  background: #fff;
+}
+
+.badge--state-your-turn {
+  color: var(--brand);
+  border-color: var(--bd);
+  background: var(--brand-soft);
+}
+
+.badge--state-open {
+  color: var(--chiptx);
+  border-color: var(--chip);
+  background: var(--soft);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--bd);
+  background: var(--chip);
+  color: var(--chiptx);
+  line-height: 1.2;
+}
+
+.chip--muted,
+.horario-view-space-pending {
+  font-weight: 600;
+  font-style: italic;
+  color: var(--faint);
+  border-color: var(--line);
+  background: var(--paper2);
+}
+
+.reserva-header {
+  padding: 0;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.reserva-header-band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 14px clamp(20px, 4vw, 48px);
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.reserva-header-start {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.reserva-header-actions {
+  flex-shrink: 0;
+}
+
+.reserva-logout {
+  font-size: 13.5px;
+}
+
+.reserva-role.badge {
+  font-size: 10px;
+  padding: 3px 9px;
+}
+
+.reserva-main {
+  max-width: 1080px;
+}
+
+.reserva-tabs {
+  gap: 6px;
+  padding: 4px;
+  background: var(--paper2);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.reserva-tabs .tab,
+.reserva-tab {
+  flex: 0 1 auto;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 10px 18px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+.reserva-tabs .tab:hover,
+.reserva-tab:hover {
+  background: rgba(255, 255, 255, .7);
+  color: var(--ink);
+}
+
+.reserva-tabs .tab.active,
+.reserva-tab.active {
+  background: var(--brand);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: var(--shadow);
+}
+
+.panel.card {
+  padding: 32px 32px 28px;
+}
+
+.panel-title {
+  font-size: 24px;
+  margin-bottom: 6px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.app-form-section {
+  margin-top: 28px;
+}
+
+.app-form-card {
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--paper2);
+}
+
+.horario-slot-class {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.2;
+}
+
+.horario-slot-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.horario-view-slot .horario-slot-main {
+  gap: 8px;
+}
+
+.horario-view-slot .chip {
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+.horario-day-col {
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.horario-day-hd {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+
+.horario-view-slot {
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.horario-view-slot:hover {
+  border-color: var(--bd);
+  box-shadow: var(--shadow);
+}
+
+.horario-day-empty {
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.draft-countdown-panel,
+.reservar-countdown-panel {
+  padding: 14px 18px;
+  border-radius: var(--r);
+  border: 1px solid var(--bd);
+  background: var(--brand-soft);
+}
+
+.reservar-countdown-panel--active,
+.draft-countdown-panel {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  box-shadow: var(--shadow);
+}
+
+.draft-countdown-wrap,
+.reservar-countdown-wrap {
+  align-items: flex-start;
+}
+
+.draft-countdown,
+.reservar-countdown {
+  font-size: clamp(32px, 5vw, 42px);
+  color: var(--brand);
+  letter-spacing: .04em;
+}
+
+.draft-turn-row-active {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  box-shadow: var(--shadow);
+}
+
+.draft-turn-row-active .draft-turn-pos {
+  color: var(--brand);
+}
+
+.reservar-banner {
+  position: relative;
+  padding-top: 36px;
+}
+
+.reservar-state-badge {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+}
+
+.reservar-banner-waiting {
+  border-left: 4px solid var(--line);
+}
+
+.reservar-banner-active {
+  border-left: 4px solid var(--brand);
+  background: var(--brand-soft);
+  border-color: var(--bd);
+}
+
+.reservar-banner-open {
+  border-left: 4px solid var(--chip);
+  background: var(--soft);
+  border-color: var(--bd);
+}
+
+.study-book-own-row,
+.study-admin-booking-row,
+.study-admin-space-row,
+.reservar-slot-row {
+  border-radius: var(--r);
+  transition: border-color .15s;
+}
+
+.study-book-own-row:hover,
+.study-admin-booking-row:hover,
+.reservar-slot-row:hover {
+  border-color: var(--bd);
+}
+
+.horario-placement-block,
+.draft-reorder-item,
+.teacher-code-box {
+  border-radius: var(--r);
+}
+
+@media (max-width: 640px) {
+  .reserva-header-band {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .reserva-header-actions {
+    width: 100%;
+  }
+
+  .reserva-logout {
+    width: 100%;
+  }
+
+  .reserva-tabs {
+    flex-direction: column;
+  }
+
+  .reserva-tabs .tab,
+  .reserva-tab {
+    width: 100%;
+    text-align: center;
+  }
+}
+

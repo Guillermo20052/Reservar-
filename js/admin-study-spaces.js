@@ -224,7 +224,7 @@ function renderSpacesList() {
         <div class="study-admin-space-main">
           <strong class="study-admin-space-name">${escapeHtml(space.name)}</strong>
           <span class="study-admin-space-meta">Misma sala: ${escapeHtml(linked)}</span>
-          <span class="study-admin-badge ${activeClass}">${activeLabel}</span>
+          <span class="badge badge--${space.active ? 'active' : 'inactive'} study-admin-badge ${activeClass}">${activeLabel}</span>
         </div>
         <div class="study-admin-space-actions">
           <button type="button" class="btn btn-ghost study-admin-btn-sm" data-toggle-active="${space.id}">
@@ -268,13 +268,13 @@ function renderBookingRow(booking, { showActions = false, allowCancel = false })
     <article class="study-admin-booking-row">
       <div class="study-admin-booking-main">
         <strong class="study-admin-booking-requester">${escapeHtml(requesterName)}</strong>
-        <span class="study-admin-booking-role">${escapeHtml(requesterRole)}</span>
+        <span class="study-admin-booking-role badge badge--role badge--role-${requester?.role || 'student'}">${escapeHtml(requesterRole)}</span>
         <span class="study-admin-booking-space">${escapeHtml(spaceName)}</span>
         ${linkedLine}
         <span class="study-admin-booking-when">
           ${formatDate(booking.booking_date)} · ${formatTime(booking.start_time)} · ${durationLabel(booking.duration_min)}
         </span>
-        <span class="study-admin-badge study-admin-status-badge ${statusClass}">${STATUS_LABELS[booking.status] || booking.status}</span>
+        <span class="badge badge--${booking.status} study-admin-badge study-admin-status-badge ${statusClass}">${STATUS_LABELS[booking.status] || booking.status}</span>
       </div>
       ${actions}
     </article>

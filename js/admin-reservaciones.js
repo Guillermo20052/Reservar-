@@ -250,7 +250,7 @@ function renderLive() {
       <li class="draft-turn-row${isActive ? ' draft-turn-row-active' : ''}">
         <span class="draft-turn-pos">${turn.position}</span>
         <span class="draft-turn-name">${escapeHtml(name)}</span>
-        <span class="draft-badge draft-badge-${turn.status}">${STATUS_LABELS[turn.status] || turn.status}</span>
+        <span class="badge badge--${turn.status} draft-badge draft-badge-${turn.status}">${STATUS_LABELS[turn.status] || turn.status}</span>
         <span class="draft-turn-picks">${counts.confirmed}/${counts.total} confirmadas</span>
       </li>
     `;
@@ -259,11 +259,13 @@ function renderLive() {
   root.innerHTML = `
     <section class="draft-section">
       <div class="draft-live-header">
-        <span class="draft-phase-badge draft-phase-${session.phase}">${escapeHtml(phaseLabel)}</span>
+        <span class="badge badge--phase badge--phase-${session.phase} draft-phase-badge draft-phase-${session.phase}">${escapeHtml(phaseLabel)}</span>
         ${isLive ? `
-          <div class="draft-countdown-wrap">
-            <span class="draft-countdown-label">Tiempo restante</span>
-            <span class="draft-countdown" id="draft-countdown">--:--</span>
+          <div class="draft-countdown-panel">
+            <div class="draft-countdown-wrap">
+              <span class="draft-countdown-label">Tiempo restante</span>
+              <span class="draft-countdown" id="draft-countdown">--:--</span>
+            </div>
           </div>
         ` : ''}
       </div>
