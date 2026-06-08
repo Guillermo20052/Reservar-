@@ -1,7 +1,7 @@
 import { supabase } from './supabase.js';
 
 const ROLE_LABELS = {
-  student: 'Estudiante',
+  student: 'Alumna',
   teacher: 'Maestra',
   admin: 'Administradora',
 };

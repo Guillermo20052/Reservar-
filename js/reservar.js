@@ -7,7 +7,7 @@ const TABS_BY_ROLE = {
 };
 
 const ROLE_LABELS = {
-  student: 'Estudiante',
+  student: 'Alumna',
   teacher: 'Maestra',
   admin: 'Administradora',
 };
