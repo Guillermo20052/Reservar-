@@ -149,6 +149,10 @@ function buildPanelShell() {
     <h2 class="panel-title">Horario</h2>
     <div id="horario-view-alert" class="alert alert-error" hidden></div>
     <div id="horario-view-draft-banner" class="horario-view-draft-banner" hidden></div>
+    <section class="horario-view-plano-link">
+      <a class="btn btn-ghost horario-view-plano-btn" href="home.html#plano">Ver plano interactivo</a>
+      <p class="horario-view-plano-note">Consulta el mapa de espacios en la guía pedagógica.</p>
+    </section>
     <section class="horario-view-section">
       <label class="horario-view-grade-label" for="horario-view-grade">Grado</label>
       <select class="input horario-grade-select" id="horario-view-grade">

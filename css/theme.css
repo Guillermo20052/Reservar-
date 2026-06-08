@@ -1421,6 +1421,81 @@ button { font-family: inherit; cursor: pointer; }
   margin-top: 12px;
 }
 
+.password-field {
+  position: relative;
+}
+
+.password-field .input {
+  padding-right: 44px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.reserva-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.reserva-logo {
+  width: auto;
+  max-width: 120px;
+  max-height: 36px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.horario-view-plano-link {
+  margin: 0 0 20px;
+  padding: 14px 16px;
+  background: var(--paper2);
+  border: 1px solid var(--line);
+  border-radius: var(--r, 12px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 16px;
+}
+
+.horario-view-plano-btn {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.horario-view-plano-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .horario-view-section {
   margin-top: 20px;
 }

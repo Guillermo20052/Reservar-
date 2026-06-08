@@ -63,17 +63,17 @@ INSERT INTO public.spaces (id, name, sort_order) VALUES
   (1, 'Lumen', 1),
   (2, 'Anima', 2),
   (3, 'Sedes', 3),
-  (4, 'Nidus', 4),
-  (5, 'Rivus', 5),
-  (6, 'The WHY', 6),
-  (7, 'Lacus', 7),
-  (8, 'Agora', 8),
-  (9, 'Eureka', 9),
-  (10, 'Aether', 10),
-  (11, 'Radices', 11),
-  (12, 'Virtus', 12),
-  (13, 'Vesta', 13)
-ON CONFLICT (id) DO NOTHING;
+  (5, 'Rivus', 4),
+  (6, 'The WHY', 5),
+  (7, 'Lacus', 6),
+  (8, 'Agora', 7),
+  (9, 'Eureka', 8),
+  (11, 'Radices 1', 9),
+  (14, 'Radices 2', 10),
+  (12, 'Virtus', 11),
+  (13, 'Vesta', 12)
+ON CONFLICT (id) DO UPDATE
+SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order;
 
 -- ---------------------------------------------------------------------------
 -- Timetable slots (one row per class placement)
