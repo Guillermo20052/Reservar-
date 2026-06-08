@@ -9,9 +9,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/theme.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script type="module" src="js/config.js"></script>
-  <script type="module" src="js/supabase.js"></script>
-  <script type="module" src="js/auth.js"></script>
 </head>
 <body>
   <main class="auth-page">
@@ -32,7 +29,7 @@
 
         <div id="alert" class="alert" hidden></div>
 
-        <form id="form-login" novalidate>
+        <form id="form-login" novalidate method="post" action="." onsubmit="return false">
           <div class="form-group">
             <label for="login-email">Correo electrónico</label>
             <input class="input" id="login-email" type="email" name="email" autocomplete="email" required>
@@ -44,11 +41,11 @@
           <p class="auth-links">
             <a class="link-brand" href="#">¿Olvidaste tu contraseña?</a>
           </p>
-          <button type="submit" class="btn btn-primary btn-block" id="login-submit">Entrar</button>
-          <p class="auth-switch">¿No tienes cuenta? <button type="button" class="link-brand" onclick="document.getElementById('tab-signup').click()">Regístrate</button></p>
+          <button type="button" class="btn btn-primary btn-block" id="login-submit">Entrar</button>
+          <p class="auth-switch">¿No tienes cuenta? <button type="button" class="link-brand" id="switch-to-signup">Regístrate</button></p>
         </form>
 
-        <form id="form-signup" hidden novalidate>
+        <form id="form-signup" hidden novalidate method="post" action="." onsubmit="return false">
           <div class="form-group">
             <label for="signup-name">Nombre completo</label>
             <input class="input" id="signup-name" type="text" name="fullName" autocomplete="name" required>
@@ -61,8 +58,8 @@
             <label for="signup-password">Contraseña</label>
             <input class="input" id="signup-password" type="password" name="password" autocomplete="new-password" minlength="6" required>
           </div>
-          <button type="submit" class="btn btn-primary btn-block" id="signup-submit">Crear cuenta</button>
-          <p class="auth-switch">¿Ya tienes cuenta? <button type="button" class="link-brand" onclick="document.getElementById('tab-login').click()">Inicia sesión</button></p>
+          <button type="button" class="btn btn-primary btn-block" id="signup-submit">Crear cuenta</button>
+          <p class="auth-switch">¿Ya tienes cuenta? <button type="button" class="link-brand" id="switch-to-login">Inicia sesión</button></p>
         </form>
       </div>
 
@@ -71,10 +68,6 @@
   </main>
 
   <script type="module">
-    import { redirectIfLoggedIn, signIn, signUp } from './js/auth.js';
-
-    redirectIfLoggedIn();
-
     const tabLogin = document.getElementById('tab-login');
     const tabSignup = document.getElementById('tab-signup');
     const formLogin = document.getElementById('form-login');
@@ -105,13 +98,16 @@
 
     tabLogin.addEventListener('click', () => setMode('login'));
     tabSignup.addEventListener('click', () => setMode('signup'));
+    document.getElementById('switch-to-signup')?.addEventListener('click', () => setMode('signup'));
+    document.getElementById('switch-to-login')?.addEventListener('click', () => setMode('login'));
 
-    formLogin.addEventListener('submit', async (e) => {
+    async function handleLogin(e) {
       e.preventDefault();
       hideAlert();
       const btn = document.getElementById('login-submit');
       btn.disabled = true;
       try {
+        const { signIn } = await import('./js/auth.js');
         await signIn(
           document.getElementById('login-email').value.trim(),
           document.getElementById('login-password').value
@@ -120,14 +116,15 @@
         showAlert(err.message || 'No se pudo iniciar sesión.');
         btn.disabled = false;
       }
-    });
+    }
 
-    formSignup.addEventListener('submit', async (e) => {
+    async function handleSignup(e) {
       e.preventDefault();
       hideAlert();
       const btn = document.getElementById('signup-submit');
       btn.disabled = true;
       try {
+        const { signUp } = await import('./js/auth.js');
         await signUp(
           document.getElementById('signup-email').value.trim(),
           document.getElementById('signup-password').value,
@@ -140,7 +137,22 @@
       } finally {
         btn.disabled = false;
       }
-    });
+    }
+
+    formLogin.addEventListener('submit', handleLogin);
+    formSignup.addEventListener('submit', handleSignup);
+    document.getElementById('login-submit')?.addEventListener('click', handleLogin);
+    document.getElementById('signup-submit')?.addEventListener('click', handleSignup);
+
+    try {
+      if (!window.supabase?.createClient) {
+        throw new Error('No se pudo cargar Supabase. Comprueba tu conexión e inténtalo de nuevo.');
+      }
+      const { redirectIfLoggedIn } = await import('./js/auth.js');
+      await redirectIfLoggedIn();
+    } catch (err) {
+      showAlert(err.message || 'No se pudo inicializar la sesión.');
+    }
   </script>
 </body>
 </html>
