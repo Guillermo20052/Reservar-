@@ -11,6 +11,15 @@ const WEEKDAY_LABELS = {
   viernes: 'Viernes',
 };
 
+const SLOT_SELECT = `
+  id, class_id, grade, day, start_time, end_time, teacher_id, is_multi,
+  timetable_slot_teachers(teacher_id),
+  timetable_slot_parts(
+    id, part_index, class_id, classes(name),
+    timetable_slot_part_teachers(teacher_id)
+  )
+`;
+
 /** @type {{
  *   profile: object,
  *   grade: string,
@@ -19,6 +28,7 @@ const WEEKDAY_LABELS = {
  *   slots: object[],
  *   slotCountByClass: Record<string, number>,
  *   editingSlotId: string | null,
+ *   formMulti: boolean,
  * }} */
 const state = {
   profile: null,
@@ -28,6 +38,7 @@ const state = {
   slots: [],
   slotCountByClass: {},
   editingSlotId: null,
+  formMulti: false,
 };
 
 function formatTime(time) {
@@ -69,10 +80,31 @@ function slotTeacherIds(slot) {
   return [];
 }
 
+function partTeacherIds(part) {
+  return (part.timetable_slot_part_teachers ?? []).map((row) => row.teacher_id).filter(Boolean);
+}
+
+function normalizeParts(slot) {
+  return (slot.timetable_slot_parts ?? [])
+    .slice()
+    .sort((a, b) => a.part_index - b.part_index)
+    .map((part) => ({
+      id: part.id,
+      part_index: part.part_index,
+      class_id: part.class_id,
+      class_name: part.classes?.name ?? classNameById(part.class_id),
+      teacher_ids: partTeacherIds(part),
+    }));
+}
+
 function normalizeSlot(slot) {
+  const parts = normalizeParts(slot);
+  const isMulti = Boolean(slot.is_multi) && parts.length > 0;
   return {
     ...slot,
-    teacher_ids: slotTeacherIds(slot),
+    is_multi: isMulti,
+    parts,
+    teacher_ids: isMulti ? [] : slotTeacherIds(slot),
   };
 }
 
@@ -89,6 +121,15 @@ function slotCountLabel(count) {
 function teacherNamesLabel(teacherIds) {
   if (!teacherIds.length) return 'Sin asignar';
   return teacherIds.map((id) => teacherNameById(id)).join(', ');
+}
+
+function classOptionsHtml(selectedId = '') {
+  return state.classes
+    .map((c) => {
+      const selected = c.id === selectedId ? ' selected' : '';
+      return `<option value="${c.id}"${selected}>${escapeHtml(c.name)}</option>`;
+    })
+    .join('');
 }
 
 async function fetchClasses() {
@@ -110,29 +151,45 @@ async function fetchTeachers() {
 async function fetchSlots(grade) {
   const { data, error } = await supabase
     .from('timetable_slots')
-    .select('id, class_id, grade, day, start_time, end_time, teacher_id, timetable_slot_teachers(teacher_id)')
+    .select(SLOT_SELECT)
     .eq('grade', grade);
 
   if (error) {
     const { data: legacy, error: legacyError } = await supabase
       .from('timetable_slots')
-      .select('id, class_id, grade, day, start_time, end_time, teacher_id')
+      .select('id, class_id, grade, day, start_time, end_time, teacher_id, is_multi')
       .eq('grade', grade);
     if (legacyError) throw legacyError;
-    return (legacy ?? []).map(normalizeSlot);
+    return (legacy ?? []).map((slot) => normalizeSlot({ ...slot, timetable_slot_parts: [] }));
   }
 
   return (data ?? []).map(normalizeSlot);
 }
 
 async function fetchSlotCountsByClass() {
-  const { data, error } = await supabase.from('timetable_slots').select('class_id');
-  if (error) throw error;
   /** @type {Record<string, number>} */
   const counts = {};
-  for (const row of data ?? []) {
-    counts[row.class_id] = (counts[row.class_id] ?? 0) + 1;
+
+  const { data: slots, error: slotsError } = await supabase
+    .from('timetable_slots')
+    .select('class_id, is_multi');
+  if (slotsError) throw slotsError;
+
+  for (const row of slots ?? []) {
+    if (!row.is_multi) {
+      counts[row.class_id] = (counts[row.class_id] ?? 0) + 1;
+    }
   }
+
+  const { data: parts, error: partsError } = await supabase
+    .from('timetable_slot_parts')
+    .select('class_id');
+  if (!partsError) {
+    for (const row of parts ?? []) {
+      counts[row.class_id] = (counts[row.class_id] ?? 0) + 1;
+    }
+  }
+
   return counts;
 }
 
@@ -151,10 +208,129 @@ async function syncSlotTeachers(slotId, teacherIds) {
   if (insertError) throw insertError;
 }
 
+async function syncSlotParts(slotId, parts) {
+  const { data: existingParts, error: fetchError } = await supabase
+    .from('timetable_slot_parts')
+    .select('id')
+    .eq('slot_id', slotId);
+  if (fetchError) throw fetchError;
+
+  const existingIds = (existingParts ?? []).map((row) => row.id);
+
+  if (existingIds.length) {
+    const { error: deleteTeachersError } = await supabase
+      .from('timetable_slot_part_teachers')
+      .delete()
+      .in('part_id', existingIds);
+    if (deleteTeachersError) throw deleteTeachersError;
+  }
+
+  const { error: deletePartsError } = await supabase
+    .from('timetable_slot_parts')
+    .delete()
+    .eq('slot_id', slotId);
+  if (deletePartsError) throw deletePartsError;
+
+  if (!parts?.length) return;
+
+  for (const part of parts) {
+    const { data: inserted, error: insertPartError } = await supabase
+      .from('timetable_slot_parts')
+      .insert({
+        slot_id: slotId,
+        class_id: part.class_id,
+        part_index: part.part_index,
+      })
+      .select('id')
+      .single();
+    if (insertPartError) throw insertPartError;
+
+    if (part.teacher_ids.length) {
+      const { error: insertTeachersError } = await supabase
+        .from('timetable_slot_part_teachers')
+        .insert(
+          part.teacher_ids.map((teacher_id) => ({
+            part_id: inserted.id,
+            teacher_id,
+          }))
+        );
+      if (insertTeachersError) throw insertTeachersError;
+    }
+  }
+}
+
 function getSelectedTeacherIds() {
   return [...document.querySelectorAll('.horario-teacher-checkbox:checked')].map(
     (input) => input.dataset.teacherId
   );
+}
+
+function getPartTeacherIds(partIndex) {
+  return [
+    ...document.querySelectorAll(
+      `.horario-part-teacher-checkbox[data-part="${partIndex}"]:checked`
+    ),
+  ].map((input) => input.dataset.teacherId);
+}
+
+function getMultiFormParts() {
+  return [1, 2].map((partIndex) => ({
+    part_index: partIndex,
+    class_id: document.getElementById(`horario-part-class-${partIndex}`)?.value ?? '',
+    teacher_ids: getPartTeacherIds(partIndex),
+  }));
+}
+
+function setFormMulti(isMulti) {
+  state.formMulti = isMulti;
+
+  const toggle = document.getElementById('horario-toggle-multi');
+  const singleFields = document.getElementById('horario-single-fields');
+  const multiFields = document.getElementById('horario-multi-fields');
+  const classSelect = document.getElementById('horario-slot-class');
+
+  if (toggle) {
+    toggle.classList.toggle('btn-primary', isMulti);
+    toggle.classList.toggle('btn-ghost', !isMulti);
+  }
+  if (singleFields) singleFields.hidden = isMulti;
+  if (multiFields) multiFields.hidden = !isMulti;
+  if (classSelect) classSelect.required = !isMulti;
+}
+
+function renderPartTeacherCheckboxes(partIndex, selectedIds = []) {
+  const root = document.getElementById(`horario-part-teachers-${partIndex}`);
+  if (!root) return;
+
+  const selected = new Set(selectedIds);
+
+  if (!state.teachers.length) {
+    root.innerHTML = '<p class="horario-teacher-empty">No hay maestras registradas.</p>';
+    return;
+  }
+
+  root.innerHTML = state.teachers
+    .map((teacher) => {
+      const checked = selected.has(teacher.id) ? ' checked' : '';
+      return `
+        <label class="horario-teacher-toggle">
+          <input type="checkbox" class="horario-part-teacher-checkbox" data-part="${partIndex}" data-teacher-id="${teacher.id}"${checked}>
+          <span>${escapeHtml(teacher.full_name || 'Sin nombre')}</span>
+        </label>
+      `;
+    })
+    .join('');
+}
+
+function renderMultiPartSelects(parts = []) {
+  for (const partIndex of [1, 2]) {
+    const select = document.getElementById(`horario-part-class-${partIndex}`);
+    const existing = parts.find((p) => p.part_index === partIndex);
+    if (select) {
+      select.innerHTML = classOptionsHtml(existing?.class_id ?? '');
+    }
+    renderPartTeacherCheckboxes(partIndex, existing?.teacher_ids ?? []);
+  }
 }
 
 function buildPanelShell() {
@@ -177,7 +353,7 @@ function buildPanelShell() {
       <form id="horario-create-class" class="horario-inline-form">
         <div class="form-group horario-inline-field">
           <label for="horario-new-class">Nueva materia</label>
-          <input class="input" id="horario-new-class" type="text" placeholder="Ej. Física, Matemáticas" required>
+          <input class="input" id="horario-new-class" type="text" placeholder="Ej. Física, Business IB" required>
         </div>
         <button type="submit" class="btn btn-primary">Crear</button>
       </form>
@@ -186,7 +362,7 @@ function buildPanelShell() {
 
     <section class="horario-section horario-step">
       <h3 class="horario-step-title">2 · Horario por grado</h3>
-      <p class="horario-step-lede">Elige un grado, coloca cada materia en su día y hora, y asigna una o más maestras a cargo.</p>
+      <p class="horario-step-lede">Elige un grado, coloca cada materia en su día y hora, y asigna maestras. Usa <strong>Multi</strong> para franjas IB divididas (ej. Business + History, dos espacios).</p>
 
       <div id="horario-step2-gate" class="horario-step-gate" hidden>
         <p>Primero crea materias arriba.</p>
@@ -202,14 +378,15 @@ function buildPanelShell() {
 
         <div class="horario-schedule-unit">
           <div class="horario-placement-block" id="horario-placement-block">
-            <h4 class="horario-form-heading" id="horario-form-title">Colocar en el horario</h4>
-            <p id="horario-form-grade" class="horario-form-grade">Grado: <strong>10mo</strong></p>
+            <div class="horario-form-header">
+              <div>
+                <h4 class="horario-form-heading" id="horario-form-title">Colocar en el horario</h4>
+                <p id="horario-form-grade" class="horario-form-grade">Grado: <strong>10mo</strong></p>
+              </div>
+              <button type="button" class="btn btn-ghost" id="horario-toggle-multi">Multi</button>
+            </div>
             <form id="horario-slot-form" class="horario-slot-form">
               <div class="horario-form-grid">
-                <div class="form-group">
-                  <label for="horario-slot-class">Materia</label>
-                  <select class="input" id="horario-slot-class" required></select>
-                </div>
                 <div class="form-group">
                   <label for="horario-slot-day">Día</label>
                   <select class="input" id="horario-slot-day" required>
@@ -224,11 +401,49 @@ function buildPanelShell() {
                   <label for="horario-slot-end">Fin</label>
                   <input class="input" id="horario-slot-end" type="time" required>
                 </div>
-                <div class="form-group horario-teacher-field">
-                  <span class="horario-teacher-label" id="horario-slot-teachers-label">Maestras a cargo</span>
-                  <div id="horario-slot-teachers" class="horario-teacher-list"></div>
+              </div>
+
+              <div id="horario-single-fields">
+                <div class="horario-form-grid">
+                  <div class="form-group">
+                    <label for="horario-slot-class">Materia</label>
+                    <select class="input" id="horario-slot-class" required></select>
+                  </div>
+                  <div class="form-group horario-teacher-field">
+                    <span class="horario-teacher-label">Maestras a cargo</span>
+                    <div id="horario-slot-teachers" class="horario-teacher-list"></div>
+                  </div>
                 </div>
               </div>
+
+              <div id="horario-multi-fields" class="horario-multi-fields" hidden>
+                <p class="horario-multi-hint">Mitad de la generación a cada materia — cada una reserva su propio espacio.</p>
+                <div class="horario-multi-parts">
+                  <fieldset class="horario-multi-part">
+                    <legend>Parte A</legend>
+                    <div class="form-group">
+                      <label for="horario-part-class-1">Materia</label>
+                      <select class="input" id="horario-part-class-1"></select>
+                    </div>
+                    <div class="form-group">
+                      <span class="horario-teacher-label">Maestras</span>
+                      <div id="horario-part-teachers-1" class="horario-teacher-list"></div>
+                    </div>
+                  </fieldset>
+                  <fieldset class="horario-multi-part">
+                    <legend>Parte B</legend>
+                    <div class="form-group">
+                      <label for="horario-part-class-2">Materia</label>
+                      <select class="input" id="horario-part-class-2"></select>
+                    </div>
+                    <div class="form-group">
+                      <span class="horario-teacher-label">Maestras</span>
+                      <div id="horario-part-teachers-2" class="horario-teacher-list"></div>
+                    </div>
+                  </fieldset>
+                </div>
+              </div>
+
               <div class="horario-form-actions">
                 <button type="submit" class="btn btn-primary" id="horario-slot-submit">Agregar a 10mo</button>
                 <button type="button" class="btn btn-ghost" id="horario-slot-cancel" hidden>Cancelar edición</button>
@@ -245,6 +460,61 @@ function buildPanelShell() {
         </div>
       </div>
     </section>
+  `;
+}
+
+function renderSlotCard(slot) {
+  const timeLine = `<span class="horario-slot-time">${formatTime(slot.start_time)} – ${formatTime(slot.end_time)}</span>`;
+
+  if (slot.is_multi && slot.parts.length) {
+    const partsHtml = slot.parts
+      .map(
+        (part) => `
+        <div class="horario-multi-part-display">
+          <strong>${escapeHtml(part.class_name || classNameById(part.class_id))}</strong>
+          <span class="horario-slot-teacher">${escapeHtml(teacherNamesLabel(part.teacher_ids))}</span>
+        </div>
+      `
+      )
+      .join('');
+
+    const allAssigned = slot.parts.every((p) => p.teacher_ids.length > 0);
+
+    return `
+      <article class="horario-slot-card horario-slot-card-multi${allAssigned ? '' : ' horario-slot-card-unassigned'}">
+        <span class="badge horario-multi-badge">Multi</span>
+        <div class="horario-slot-main">
+          <div class="horario-multi-split">${partsHtml}</div>
+          ${timeLine}
+        </div>
+        <div class="horario-slot-actions">
+          <button type="button" class="btn btn-ghost horario-btn-sm" data-edit-slot="${slot.id}">Editar</button>
+          <button type="button" class="btn btn-ghost horario-btn-sm" data-delete-slot="${slot.id}">Eliminar</button>
+        </div>
+      </article>
+    `;
+  }
+
+  const hasTeachers = slot.teacher_ids.length > 0;
+  const teacherBlock = hasTeachers
+    ? `<span class="horario-slot-teacher">${escapeHtml(teacherNamesLabel(slot.teacher_ids))}</span>`
+    : `
+      <span class="horario-slot-teacher horario-slot-unassigned">Sin asignar</span>
+      <button type="button" class="btn btn-ghost horario-btn-sm horario-assign-btn" data-assign-teacher="${slot.id}">Asignar maestras</button>
+    `;
+
+  return `
+    <article class="horario-slot-card${hasTeachers ? '' : ' horario-slot-card-unassigned'}">
+      <div class="horario-slot-main">
+        <strong>${escapeHtml(classNameById(slot.class_id))}</strong>
+        ${timeLine}
+        ${teacherBlock}
+      </div>
+      <div class="horario-slot-actions">
+        <button type="button" class="btn btn-ghost horario-btn-sm" data-edit-slot="${slot.id}">Editar</button>
+        <button type="button" class="btn btn-ghost horario-btn-sm" data-delete-slot="${slot.id}">Eliminar</button>
+      </div>
+    </article>
   `;
 }
 
@@ -304,29 +574,7 @@ function renderWeeklyGrid() {
       .sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
 
     const cards = daySlots.length
-      ? daySlots.map((slot) => {
-          const hasTeachers = slot.teacher_ids.length > 0;
-          const teacherBlock = hasTeachers
-            ? `<span class="horario-slot-teacher">${escapeHtml(teacherNamesLabel(slot.teacher_ids))}</span>`
-            : `
-              <span class="horario-slot-teacher horario-slot-unassigned">Sin asignar</span>
-              <button type="button" class="btn btn-ghost horario-btn-sm horario-assign-btn" data-assign-teacher="${slot.id}">Asignar maestras</button>
-            `;
-
-          return `
-            <article class="horario-slot-card${hasTeachers ? '' : ' horario-slot-card-unassigned'}">
-              <div class="horario-slot-main">
-                <strong>${escapeHtml(classNameById(slot.class_id))}</strong>
-                <span class="horario-slot-time">${formatTime(slot.start_time)} – ${formatTime(slot.end_time)}</span>
-                ${teacherBlock}
-              </div>
-              <div class="horario-slot-actions">
-                <button type="button" class="btn btn-ghost horario-btn-sm" data-edit-slot="${slot.id}">Editar</button>
-                <button type="button" class="btn btn-ghost horario-btn-sm" data-delete-slot="${slot.id}">Eliminar</button>
-              </div>
-            </article>
-          `;
-        }).join('')
+      ? daySlots.map((slot) => renderSlotCard(slot)).join('')
       : '<p class="horario-day-empty">Sin franjas</p>';
 
     return `
@@ -369,7 +617,7 @@ function populateFormSelects() {
   const prevClass = classSelect.value;
 
   classSelect.innerHTML = state.classes.length
-    ? state.classes.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')
+    ? classOptionsHtml()
     : '<option value="" disabled selected>No hay materias</option>';
 
   if (prevClass && state.classes.some((c) => c.id === prevClass)) {
@@ -378,6 +626,7 @@ function populateFormSelects() {
 
   if (!state.editingSlotId) {
     renderTeacherCheckboxes();
+    renderMultiPartSelects();
   }
 }
 
@@ -393,7 +642,9 @@ function updateFormChrome() {
   if (state.editingSlotId) {
     submit.textContent = `Guardar cambios en ${state.grade}`;
   } else {
-    submit.textContent = `Agregar a ${state.grade}`;
+    submit.textContent = state.formMulti
+      ? `Agregar multi a ${state.grade}`
+      : `Agregar a ${state.grade}`;
   }
 }
 
@@ -407,21 +658,32 @@ function escapeHtml(text) {
 
 function clearSlotForm() {
   state.editingSlotId = null;
+  state.formMulti = false;
   const form = document.getElementById('horario-slot-form');
   form?.reset();
   document.getElementById('horario-form-title').textContent = 'Colocar en el horario';
   document.getElementById('horario-slot-cancel').hidden = true;
+  setFormMulti(false);
   renderTeacherCheckboxes();
+  renderMultiPartSelects();
   updateFormChrome();
 }
 
 function prefillSlotForm(slot, { focusTeacher = false } = {}) {
   state.editingSlotId = slot.id;
-  document.getElementById('horario-slot-class').value = slot.class_id;
   document.getElementById('horario-slot-day').value = slot.day;
   document.getElementById('horario-slot-start').value = formatTime(slot.start_time);
   document.getElementById('horario-slot-end').value = formatTime(slot.end_time);
-  renderTeacherCheckboxes(slot.teacher_ids);
+
+  if (slot.is_multi) {
+    setFormMulti(true);
+    renderMultiPartSelects(slot.parts);
+  } else {
+    setFormMulti(false);
+    document.getElementById('horario-slot-class').value = slot.class_id;
+    renderTeacherCheckboxes(slot.teacher_ids);
+  }
+
   document.getElementById('horario-form-title').textContent = 'Editar franja';
   document.getElementById('horario-slot-cancel').hidden = false;
   updateFormChrome();
@@ -430,7 +692,7 @@ function prefillSlotForm(slot, { focusTeacher = false } = {}) {
 
   if (focusTeacher) {
     window.setTimeout(() => {
-      document.querySelector('.horario-teacher-checkbox')?.focus();
+      document.querySelector('.horario-teacher-checkbox, .horario-part-teacher-checkbox')?.focus();
     }, 200);
   }
 }
@@ -451,6 +713,12 @@ async function refreshAll() {
 function wireEvents(panel) {
   panel.querySelector('#horario-info-dismiss')?.addEventListener('click', () => {
     document.getElementById('horario-info')?.remove();
+  });
+
+  panel.querySelector('#horario-toggle-multi')?.addEventListener('click', () => {
+    hideAlert();
+    setFormMulti(!state.formMulti);
+    updateFormChrome();
   });
 
   panel.querySelector('#horario-create-class').addEventListener('submit', async (e) => {
@@ -491,19 +759,38 @@ function wireEvents(panel) {
     e.preventDefault();
     hideAlert();
 
-    const classId = document.getElementById('horario-slot-class').value;
     const day = document.getElementById('horario-slot-day').value;
     const startTime = document.getElementById('horario-slot-start').value;
     const endTime = document.getElementById('horario-slot-end').value;
-    const teacherIds = getSelectedTeacherIds();
 
-    if (!classId) {
-      showAlert('Crea al menos una materia antes de agregar al horario.');
-      return;
-    }
     if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
       showAlert('La hora de fin debe ser posterior a la de inicio.');
       return;
+    }
+
+    const isMulti = state.formMulti;
+    let classId;
+    let teacherIds = [];
+    let multiParts = [];
+
+    if (isMulti) {
+      multiParts = getMultiFormParts();
+      if (!multiParts[0].class_id || !multiParts[1].class_id) {
+        showAlert('Elige una materia para cada parte (A y B).');
+        return;
+      }
+      if (multiParts[0].class_id === multiParts[1].class_id) {
+        showAlert('Las dos partes deben ser materias distintas.');
+        return;
+      }
+      classId = multiParts[0].class_id;
+    } else {
+      classId = document.getElementById('horario-slot-class').value;
+      teacherIds = getSelectedTeacherIds();
+      if (!classId) {
+        showAlert('Crea al menos una materia antes de agregar al horario.');
+        return;
+      }
     }
 
     const payload = {
@@ -512,17 +799,15 @@ function wireEvents(panel) {
       day,
       start_time: startTime,
       end_time: endTime,
+      is_multi: isMulti,
     };
 
     try {
-      if (state.editingSlotId) {
-        const { error } = await supabase
-          .from('timetable_slots')
-          .update(payload)
-          .eq('id', state.editingSlotId);
+      let slotId = state.editingSlotId;
+
+      if (slotId) {
+        const { error } = await supabase.from('timetable_slots').update(payload).eq('id', slotId);
         if (error) throw error;
-        await syncSlotTeachers(state.editingSlotId, teacherIds);
-        clearSlotForm();
       } else {
         const { data: newSlot, error } = await supabase
           .from('timetable_slots')
@@ -530,11 +815,18 @@ function wireEvents(panel) {
           .select('id')
           .single();
         if (error) throw error;
-        await syncSlotTeachers(newSlot.id, teacherIds);
-        document.getElementById('horario-slot-form').reset();
-        renderTeacherCheckboxes();
-        updateFormChrome();
+        slotId = newSlot.id;
       }
+
+      if (isMulti) {
+        await syncSlotParts(slotId, multiParts);
+        await syncSlotTeachers(slotId, []);
+      } else {
+        await syncSlotParts(slotId, null);
+        await syncSlotTeachers(slotId, teacherIds);
+      }
+
+      clearSlotForm();
       await refreshAll();
     } catch (err) {
       showAlert(err.message || 'No se pudo guardar la franja.');
@@ -562,7 +854,9 @@ function wireEvents(panel) {
       if (error) throw error;
       if (state.editingSlotId) {
         const editing = state.slots.find((s) => s.id === state.editingSlotId);
-        if (editing?.class_id === classId) clearSlotForm();
+        if (editing?.class_id === classId || editing?.parts?.some((p) => p.class_id === classId)) {
+          clearSlotForm();
+        }
       }
       await refreshAll();
     } catch (err) {
@@ -615,6 +909,7 @@ export async function mountEditarHorario(profile) {
   state.profile = profile;
   state.grade = '10mo';
   state.editingSlotId = null;
+  state.formMulti = false;
   state.slotCountByClass = {};
 
   panel.innerHTML = buildPanelShell();

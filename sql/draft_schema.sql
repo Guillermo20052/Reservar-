@@ -86,6 +86,9 @@ AS $$
     SELECT DISTINCT tst.teacher_id
     FROM public.timetable_slot_teachers tst
     UNION
+    SELECT DISTINCT tspt.teacher_id
+    FROM public.timetable_slot_part_teachers tspt
+    UNION
     SELECT DISTINCT ts.teacher_id
     FROM public.timetable_slots ts
     WHERE ts.teacher_id IS NOT NULL
@@ -286,7 +289,9 @@ GRANT EXECUTE ON FUNCTION public.start_draft(text, uuid[]) TO authenticated;
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.place_pick(
   p_slot_id uuid,
-  p_space_id smallint
+  p_space_id smallint,
+  p_slot_part_id uuid DEFAULT NULL,
+  p_pick_index smallint DEFAULT 1
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -298,6 +303,10 @@ DECLARE
   v_slot public.timetable_slots;
   v_active_teacher uuid;
 BEGIN
+  IF p_pick_index IS NULL OR p_pick_index NOT IN (1, 2) THEN
+    RAISE EXCEPTION 'invalid pick index';
+  END IF;
+
   v_session := public.current_session();
 
   IF v_session.id IS NULL OR v_session.phase NOT IN ('live'::public.draft_phase, 'open'::public.draft_phase) THEN
@@ -305,135 +314,56 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
-    SELECT 1
-    FROM public.profiles
-    WHERE id = auth.uid()
-      AND role = 'teacher'::public.role
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'teacher'::public.role
   ) THEN
     RAISE EXCEPTION 'solo docentes pueden reservar';
   END IF;
 
-  SELECT * INTO v_slot
-  FROM public.timetable_slots
-  WHERE id = p_slot_id;
+  SELECT * INTO v_slot FROM public.timetable_slots WHERE id = p_slot_id;
 
   IF v_slot.id IS NULL THEN
     RAISE EXCEPTION 'slot not found';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.timetable_slot_teachers tst
-    WHERE tst.slot_id = p_slot_id
-      AND tst.teacher_id = auth.uid()
-  ) AND NOT EXISTS (
-    SELECT 1
-    FROM public.timetable_slots ts
-    WHERE ts.id = p_slot_id
-      AND ts.teacher_id = auth.uid()
-  ) THEN
-    RAISE EXCEPTION 'not your slot';
-  END IF;
+  IF v_slot.is_multi THEN
+    IF p_slot_part_id IS NULL THEN
+      RAISE EXCEPTION 'part required for multi slot';
+    END IF;
 
-  IF v_session.phase = 'live'::public.draft_phase THEN
-    SELECT dt.teacher_id
-    INTO v_active_teacher
-    FROM public.draft_turns dt
-    WHERE dt.session_id = v_session.id
-      AND dt.status = 'active'::public.turn_status
-    LIMIT 1;
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.timetable_slot_parts tsp
+      WHERE tsp.id = p_slot_part_id AND tsp.slot_id = p_slot_id
+    ) THEN
+      RAISE EXCEPTION 'invalid slot part';
+    END IF;
 
-    IF v_active_teacher IS DISTINCT FROM auth.uid() THEN
-      RAISE EXCEPTION 'not your turn';
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.timetable_slot_part_teachers tspt
+      WHERE tspt.part_id = p_slot_part_id AND tspt.teacher_id = auth.uid()
+    ) THEN
+      RAISE EXCEPTION 'not your slot';
+    END IF;
+  ELSE
+    IF p_slot_part_id IS NOT NULL THEN
+      RAISE EXCEPTION 'part not allowed for single slot';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM public.timetable_slot_teachers tst
+      WHERE tst.slot_id = p_slot_id AND tst.teacher_id = auth.uid()
+    ) AND NOT EXISTS (
+      SELECT 1 FROM public.timetable_slots ts
+      WHERE ts.id = p_slot_id AND ts.teacher_id = auth.uid()
+    ) THEN
+      RAISE EXCEPTION 'not your slot';
     END IF;
   END IF;
 
-  DELETE FROM public.reservations
-  WHERE slot_id = p_slot_id
-    AND teacher_id = auth.uid();
-
-  BEGIN
-    INSERT INTO public.reservations (
-      slot_id,
-      space_id,
-      teacher_id,
-      day,
-      start_time,
-      confirmed,
-      session_id
-    )
-    VALUES (
-      p_slot_id,
-      p_space_id,
-      auth.uid(),
-      v_slot.day,
-      v_slot.start_time,
-      false,
-      v_session.id
-    );
-  EXCEPTION
-    WHEN unique_violation THEN
-      RAISE EXCEPTION 'espacio no disponible';
-  END;
-END;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.place_pick(uuid, smallint) TO authenticated;
-
--- ---------------------------------------------------------------------------
--- remove_pick (teacher via RPC)
--- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.remove_pick(p_slot_id uuid)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  v_session public.draft_sessions;
-  v_slot public.timetable_slots;
-  v_active_teacher uuid;
-BEGIN
-  v_session := public.current_session();
-
-  IF v_session.id IS NULL OR v_session.phase NOT IN ('live'::public.draft_phase, 'open'::public.draft_phase) THEN
-    RAISE EXCEPTION 'reservas cerradas';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.profiles
-    WHERE id = auth.uid()
-      AND role = 'teacher'::public.role
-  ) THEN
-    RAISE EXCEPTION 'solo docentes pueden reservar';
-  END IF;
-
-  SELECT * INTO v_slot
-  FROM public.timetable_slots
-  WHERE id = p_slot_id;
-
-  IF v_slot.id IS NULL THEN
-    RAISE EXCEPTION 'slot not found';
-  END IF;
-
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.timetable_slot_teachers tst
-    WHERE tst.slot_id = p_slot_id
-      AND tst.teacher_id = auth.uid()
-  ) AND NOT EXISTS (
-    SELECT 1
-    FROM public.timetable_slots ts
-    WHERE ts.id = p_slot_id
-      AND ts.teacher_id = auth.uid()
-  ) THEN
-    RAISE EXCEPTION 'not your slot';
-  END IF;
-
   IF v_session.phase = 'live'::public.draft_phase THEN
-    SELECT dt.teacher_id
-    INTO v_active_teacher
+    SELECT dt.teacher_id INTO v_active_teacher
     FROM public.draft_turns dt
     WHERE dt.session_id = v_session.id
       AND dt.status = 'active'::public.turn_status
@@ -447,14 +377,117 @@ BEGIN
   DELETE FROM public.reservations
   WHERE slot_id = p_slot_id
     AND teacher_id = auth.uid()
-    AND confirmed = false;
+    AND pick_index = p_pick_index
+    AND (
+      (p_slot_part_id IS NULL AND slot_part_id IS NULL)
+      OR slot_part_id = p_slot_part_id
+    );
+
+  BEGIN
+    INSERT INTO public.reservations (
+      slot_id, slot_part_id, pick_index, space_id, teacher_id, day, start_time, confirmed, session_id
+    )
+    VALUES (
+      p_slot_id, p_slot_part_id, p_pick_index, p_space_id, auth.uid(),
+      v_slot.day, v_slot.start_time, false, v_session.id
+    );
+  EXCEPTION
+    WHEN unique_violation THEN
+      RAISE EXCEPTION 'espacio no disponible';
+  END;
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.remove_pick(uuid) TO authenticated;
+CREATE OR REPLACE FUNCTION public.remove_pick(
+  p_slot_id uuid,
+  p_slot_part_id uuid DEFAULT NULL,
+  p_pick_index smallint DEFAULT 1
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_session public.draft_sessions;
+  v_slot public.timetable_slots;
+  v_active_teacher uuid;
+BEGIN
+  IF p_pick_index IS NULL OR p_pick_index NOT IN (1, 2) THEN
+    RAISE EXCEPTION 'invalid pick index';
+  END IF;
+
+  v_session := public.current_session();
+
+  IF v_session.id IS NULL OR v_session.phase NOT IN ('live'::public.draft_phase, 'open'::public.draft_phase) THEN
+    RAISE EXCEPTION 'reservas cerradas';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.profiles
+    WHERE id = auth.uid() AND role = 'teacher'::public.role
+  ) THEN
+    RAISE EXCEPTION 'solo docentes pueden reservar';
+  END IF;
+
+  SELECT * INTO v_slot FROM public.timetable_slots WHERE id = p_slot_id;
+
+  IF v_slot.id IS NULL THEN
+    RAISE EXCEPTION 'slot not found';
+  END IF;
+
+  IF v_slot.is_multi THEN
+    IF p_slot_part_id IS NULL THEN
+      RAISE EXCEPTION 'part required for multi slot';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM public.timetable_slot_part_teachers tspt
+      WHERE tspt.part_id = p_slot_part_id AND tspt.teacher_id = auth.uid()
+    ) THEN
+      RAISE EXCEPTION 'not your slot';
+    END IF;
+  ELSE
+    IF NOT EXISTS (
+      SELECT 1 FROM public.timetable_slot_teachers tst
+      WHERE tst.slot_id = p_slot_id AND tst.teacher_id = auth.uid()
+    ) AND NOT EXISTS (
+      SELECT 1 FROM public.timetable_slots ts
+      WHERE ts.id = p_slot_id AND ts.teacher_id = auth.uid()
+    ) THEN
+      RAISE EXCEPTION 'not your slot';
+    END IF;
+  END IF;
+
+  IF v_session.phase = 'live'::public.draft_phase THEN
+    SELECT dt.teacher_id INTO v_active_teacher
+    FROM public.draft_turns dt
+    WHERE dt.session_id = v_session.id
+      AND dt.status = 'active'::public.turn_status
+    LIMIT 1;
+
+    IF v_active_teacher IS DISTINCT FROM auth.uid() THEN
+      RAISE EXCEPTION 'not your turn';
+    END IF;
+  END IF;
+
+  DELETE FROM public.reservations
+  WHERE slot_id = p_slot_id
+    AND teacher_id = auth.uid()
+    AND pick_index = p_pick_index
+    AND confirmed = false
+    AND (
+      (p_slot_part_id IS NULL AND slot_part_id IS NULL)
+      OR slot_part_id = p_slot_part_id
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.place_pick(uuid, smallint, uuid, smallint) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.remove_pick(uuid, uuid, smallint) TO authenticated;
 
 -- ---------------------------------------------------------------------------
--- confirm_turn (teacher via RPC)
+-- -- confirm_turn (teacher via RPC)
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.confirm_turn(p_code text)
 RETURNS void

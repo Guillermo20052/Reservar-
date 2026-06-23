@@ -15,7 +15,8 @@ const WEEKDAY_LABELS = {
  *   grade: string,
  *   slots: object[],
  *   session: object | null,
- *   spaceBySlotId: Record<string, string>,
+ *   spaceBySlotId: Record<string, string[]>,
+ *   spaceByPartId: Record<string, string[]>,
  *   teacherNames: Record<string, string>,
  *   channel: object | null,
  *   debounceTimer: ReturnType<typeof setTimeout> | null,
@@ -25,6 +26,7 @@ const state = {
   slots: [],
   session: null,
   spaceBySlotId: {},
+  spaceByPartId: {},
   teacherNames: {},
   channel: null,
   debounceTimer: null,
@@ -99,10 +101,40 @@ function slotTeacherIds(slot) {
   return [];
 }
 
+function partTeacherIds(part) {
+  return (part.timetable_slot_part_teachers ?? []).map((row) => row.teacher_id).filter(Boolean);
+}
+
+function normalizeSlot(slot) {
+  const parts = (slot.timetable_slot_parts ?? [])
+    .slice()
+    .sort((a, b) => a.part_index - b.part_index)
+    .map((part) => ({
+      id: part.id,
+      part_index: part.part_index,
+      class_name: part.classes?.name || 'Clase',
+      teacher_ids: partTeacherIds(part),
+    }));
+  const isMulti = Boolean(slot.is_multi) && parts.length > 0;
+  return {
+    ...slot,
+    is_multi: isMulti,
+    parts,
+    teacher_ids: isMulti ? [] : slotTeacherIds(slot),
+  };
+}
+
 async function fetchSlots(grade) {
   const { data, error } = await supabase
     .from('timetable_slots')
-    .select('id, teacher_id, grade, day, start_time, end_time, classes(name), timetable_slot_teachers(teacher_id)')
+    .select(`
+      id, teacher_id, grade, day, start_time, end_time, is_multi, classes(name),
+      timetable_slot_teachers(teacher_id),
+      timetable_slot_parts(
+        id, part_index, classes(name),
+        timetable_slot_part_teachers(teacher_id)
+      )
+    `)
     .eq('grade', grade)
     .order('day')
     .order('start_time');
@@ -110,21 +142,15 @@ async function fetchSlots(grade) {
   if (error) {
     const { data: legacy, error: legacyError } = await supabase
       .from('timetable_slots')
-      .select('id, teacher_id, grade, day, start_time, end_time, classes(name)')
+      .select('id, teacher_id, grade, day, start_time, end_time, is_multi, classes(name)')
       .eq('grade', grade)
       .order('day')
       .order('start_time');
     if (legacyError) throw legacyError;
-    return (legacy ?? []).map((slot) => ({
-      ...slot,
-      teacher_ids: slotTeacherIds(slot),
-    }));
+    return (legacy ?? []).map((slot) => normalizeSlot({ ...slot, timetable_slot_parts: [] }));
   }
 
-  return (data ?? []).map((slot) => ({
-    ...slot,
-    teacher_ids: slotTeacherIds(slot),
-  }));
+  return (data ?? []).map(normalizeSlot);
 }
 
 async function fetchSession() {
@@ -151,22 +177,34 @@ async function fetchSession() {
 async function fetchConfirmedReservations(sessionId) {
   const { data, error } = await supabase
     .from('reservations')
-    .select('slot_id, space_id, spaces(name)')
+    .select('slot_id, slot_part_id, space_id, spaces(name)')
     .eq('session_id', sessionId)
     .eq('confirmed', true);
   if (error) throw error;
   return data ?? [];
 }
 
-function buildSpaceBySlotId(reservations) {
-  /** @type {Record<string, string>} */
-  const map = {};
+function buildSpaceMaps(reservations) {
+  /** @type {Record<string, string[]>} */
+  const bySlot = {};
+  /** @type {Record<string, string[]>} */
+  const byPart = {};
   for (const r of reservations) {
-    if (r.slot_id) {
-      map[r.slot_id] = r.spaces?.name || '—';
+    const name = r.spaces?.name || '—';
+    if (r.slot_part_id) {
+      if (!byPart[r.slot_part_id]) byPart[r.slot_part_id] = [];
+      byPart[r.slot_part_id].push(name);
+    } else if (r.slot_id) {
+      if (!bySlot[r.slot_id]) bySlot[r.slot_id] = [];
+      bySlot[r.slot_id].push(name);
     }
   }
-  return map;
+  return { bySlot, byPart };
+}
+
+function formatSpaceList(names) {
+  if (!names?.length) return null;
+  return names.join(', ');
 }
 
 function buildPanelShell() {
@@ -214,13 +252,49 @@ function renderGrid() {
 
     const cards = daySlots.length
       ? daySlots.map((slot) => {
+          const timeLine = `<span class="horario-slot-time">${formatTime(slot.start_time)} – ${formatTime(slot.end_time)}</span>`;
+
+          if (slot.is_multi && slot.parts.length) {
+            const partsHtml = slot.parts
+              .map((part) => {
+                const teacher = part.teacher_ids.length
+                  ? part.teacher_ids.map((id) => state.teacherNames[id] || 'Sin asignar').join(', ')
+                  : 'Sin asignar';
+                const spaceNames = formatSpaceList(state.spaceByPartId[part.id]);
+                const spaceHtml = spaceNames
+                  ? `<span class="chip horario-view-space-chip">${escapeHtml(spaceNames)}</span>`
+                  : '<span class="chip chip--muted horario-view-space-pending">Espacio por definir</span>';
+
+                return `
+                  <div class="horario-multi-part-display">
+                    <strong class="horario-slot-class">${escapeHtml(part.class_name)}</strong>
+                    <div class="horario-slot-meta">
+                      <span class="horario-slot-teacher">${escapeHtml(teacher)}</span>
+                    </div>
+                    ${spaceHtml}
+                  </div>
+                `;
+              })
+              .join('');
+
+            return `
+              <article class="horario-slot-card horario-view-slot horario-slot-card-multi">
+                <span class="badge horario-multi-badge">Multi</span>
+                <div class="horario-slot-main">
+                  <div class="horario-multi-split">${partsHtml}</div>
+                  ${timeLine}
+                </div>
+              </article>
+            `;
+          }
+
           const className = slot.classes?.name || 'Clase';
           const teacher = slot.teacher_ids.length
             ? slot.teacher_ids.map((id) => state.teacherNames[id] || 'Sin asignar').join(', ')
             : 'Sin asignar';
-          const spaceName = state.spaceBySlotId[slot.id];
-          const spaceHtml = spaceName
-            ? `<span class="chip horario-view-space-chip">${escapeHtml(spaceName)}</span>`
+          const spaceNames = formatSpaceList(state.spaceBySlotId[slot.id]);
+          const spaceHtml = spaceNames
+            ? `<span class="chip horario-view-space-chip">${escapeHtml(spaceNames)}</span>`
             : '<span class="chip chip--muted horario-view-space-pending">Espacio por definir</span>';
 
           return `
@@ -228,7 +302,7 @@ function renderGrid() {
               <div class="horario-slot-main">
                 <strong class="horario-slot-class">${escapeHtml(className)}</strong>
                 <div class="horario-slot-meta">
-                  <span class="horario-slot-time">${formatTime(slot.start_time)} – ${formatTime(slot.end_time)}</span>
+                  ${timeLine}
                   <span class="horario-slot-teacher">${escapeHtml(teacher)}</span>
                 </div>
                 ${spaceHtml}
@@ -251,15 +325,21 @@ async function refresh() {
   hideAlert();
   state.slots = await fetchSlots(state.grade);
   state.teacherNames = await fetchProfileNameMap(
-    state.slots.flatMap((s) => s.teacher_ids)
+    state.slots.flatMap((s) => [
+      ...s.teacher_ids,
+      ...(s.parts ?? []).flatMap((p) => p.teacher_ids),
+    ])
   );
   state.session = await fetchSession();
 
   if (state.session) {
     const reservations = await fetchConfirmedReservations(state.session.id);
-    state.spaceBySlotId = buildSpaceBySlotId(reservations);
+    const maps = buildSpaceMaps(reservations);
+    state.spaceBySlotId = maps.bySlot;
+    state.spaceByPartId = maps.byPart;
   } else {
     state.spaceBySlotId = {};
+    state.spaceByPartId = {};
   }
 
   renderDraftBanner();
@@ -316,6 +396,7 @@ export async function mountHorario(profile) {
   state.slots = [];
   state.session = null;
   state.spaceBySlotId = {};
+  state.spaceByPartId = {};
   state.teacherNames = {};
 
   panel.innerHTML = buildPanelShell();

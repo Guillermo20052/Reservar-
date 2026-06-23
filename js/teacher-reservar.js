@@ -8,6 +8,8 @@ const WEEKDAY_LABELS = {
   viernes: 'Viernes',
 };
 
+const MAX_PICKS_PER_CLASS = 2;
+
 const ERROR_MESSAGES = {
   'reservas cerradas': 'Las reservas están cerradas.',
   'not your turn': 'No es tu turno.',
@@ -15,13 +17,17 @@ const ERROR_MESSAGES = {
   'espacio no disponible': 'Ese espacio ya no está disponible.',
   'código incorrecto': 'Código incorrecto.',
   'slot not found': 'Franja no encontrada.',
+  'part required for multi slot': 'Franja múltiple: falta identificar la parte.',
+  'invalid slot part': 'Parte de franja no válida.',
+  'part not allowed for single slot': 'Esta franja no admite partes.',
+  'invalid pick index': 'Selección de espacio no válida.',
 };
 
 /** @type {{
  *   profile: object | null,
  *   session: object | null,
  *   turns: object[],
- *   slots: object[],
+ *   bookingItems: object[],
  *   spaces: object[],
  *   reservations: object[],
  *   teacherNames: Record<string, string>,
@@ -34,7 +40,7 @@ const state = {
   profile: null,
   session: null,
   turns: [],
-  slots: [],
+  bookingItems: [],
   spaces: [],
   reservations: [],
   teacherNames: {},
@@ -134,40 +140,98 @@ async function fetchTurns(sessionId) {
   return data ?? [];
 }
 
-async function fetchSlots() {
+async function fetchBookingItems() {
   const teacherId = state.profile.id;
-  /** @type {Map<string, object>} */
-  const slotMap = new Map();
+  /** @type {object[]} */
+  const items = [];
+
+  const { data: partRows, error: partError } = await supabase
+    .from('timetable_slot_part_teachers')
+    .select(`
+      part_id,
+      timetable_slot_parts(
+        id, part_index, class_id,
+        classes(name),
+        timetable_slots(id, grade, day, start_time, end_time, is_multi)
+      )
+    `)
+    .eq('teacher_id', teacherId);
+
+  if (!partError) {
+    for (const row of partRows ?? []) {
+      const part = row.timetable_slot_parts;
+      const slot = part?.timetable_slots;
+      if (slot?.is_multi && part?.id) {
+        items.push({
+          slot_id: slot.id,
+          part_id: part.id,
+          part_index: part.part_index,
+          grade: slot.grade,
+          day: slot.day,
+          start_time: slot.start_time,
+          end_time: slot.end_time,
+          class_name: part.classes?.name || 'Clase',
+          is_multi: true,
+        });
+      }
+    }
+  }
 
   const { data: assigned, error: assignError } = await supabase
     .from('timetable_slot_teachers')
-    .select('timetable_slots(id, class_id, grade, day, start_time, end_time, classes(name))')
+    .select('timetable_slots(id, class_id, grade, day, start_time, end_time, is_multi, classes(name))')
     .eq('teacher_id', teacherId);
 
   if (!assignError) {
     for (const row of assigned ?? []) {
-      if (row.timetable_slots?.id) {
-        slotMap.set(row.timetable_slots.id, row.timetable_slots);
+      const slot = row.timetable_slots;
+      if (slot?.id && !slot.is_multi) {
+        items.push({
+          slot_id: slot.id,
+          part_id: null,
+          part_index: null,
+          grade: slot.grade,
+          day: slot.day,
+          start_time: slot.start_time,
+          end_time: slot.end_time,
+          class_name: slot.classes?.name || 'Clase',
+          is_multi: false,
+        });
       }
     }
   }
 
   const { data: legacy, error: legacyError } = await supabase
     .from('timetable_slots')
-    .select('id, class_id, grade, day, start_time, end_time, classes(name)')
+    .select('id, class_id, grade, day, start_time, end_time, is_multi, classes(name)')
     .eq('teacher_id', teacherId);
 
-  if (legacyError && slotMap.size === 0) throw legacyError;
+  if (legacyError && items.length === 0) throw legacyError;
 
   for (const slot of legacy ?? []) {
-    slotMap.set(slot.id, slot);
+    if (slot.is_multi) continue;
+    if (!items.some((item) => item.slot_id === slot.id && !item.part_id)) {
+      items.push({
+        slot_id: slot.id,
+        part_id: null,
+        part_index: null,
+        grade: slot.grade,
+        day: slot.day,
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        class_name: slot.classes?.name || 'Clase',
+        is_multi: false,
+      });
+    }
   }
 
-  return [...slotMap.values()].sort((a, b) => {
+  return items.sort((a, b) => {
     const dayOrder = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
     const dayDiff = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
     if (dayDiff !== 0) return dayDiff;
-    return String(a.start_time).localeCompare(String(b.start_time));
+    const timeDiff = String(a.start_time).localeCompare(String(b.start_time));
+    if (timeDiff !== 0) return timeDiff;
+    return (a.part_index ?? 0) - (b.part_index ?? 0);
   });
 }
 
@@ -183,7 +247,7 @@ async function fetchSpaces() {
 async function fetchSessionReservations(sessionId) {
   const { data, error } = await supabase
     .from('reservations')
-    .select('id, slot_id, space_id, teacher_id, day, start_time, confirmed')
+    .select('id, slot_id, slot_part_id, pick_index, space_id, teacher_id, day, start_time, confirmed')
     .eq('session_id', sessionId);
   if (error) throw error;
   return data ?? [];
@@ -219,21 +283,32 @@ function computeUiState() {
   return { kind: 'none', activeTurn, myTurn, isMyTurn, canEditPicks: false };
 }
 
-function pickForSlot(slotId) {
-  return state.reservations.find(
-    (r) => r.slot_id === slotId && r.teacher_id === state.profile.id
-  );
+function picksForItem(item) {
+  return state.reservations
+    .filter(
+      (r) =>
+        r.slot_id === item.slot_id &&
+        r.teacher_id === state.profile.id &&
+        (item.part_id ? r.slot_part_id === item.part_id : !r.slot_part_id)
+    )
+    .sort((a, b) => (a.pick_index ?? 1) - (b.pick_index ?? 1));
 }
 
-function takenSpaceIds(day, startTime, excludeSlotId) {
+function pickForItemAtIndex(item, pickIndex) {
+  return picksForItem(item).find((r) => (r.pick_index ?? 1) === pickIndex) ?? null;
+}
+
+function takenSpaceIds(day, startTime, excludeSlotId, excludePartId = null, excludePickIndex = null) {
   return new Set(
     state.reservations
-      .filter(
-        (r) =>
-          r.day === day &&
-          r.start_time === startTime &&
-          r.slot_id !== excludeSlotId
-      )
+      .filter((r) => {
+        if (r.day !== day || r.start_time !== startTime) return false;
+        if (r.slot_id !== excludeSlotId) return true;
+        const partMatch = excludePartId ? r.slot_part_id === excludePartId : !r.slot_part_id;
+        if (!partMatch) return true;
+        if (excludePickIndex != null && (r.pick_index ?? 1) === excludePickIndex) return false;
+        return true;
+      })
       .map((r) => r.space_id)
   );
 }
@@ -250,8 +325,14 @@ function buildPanelShell() {
   `;
 }
 
-function renderSpaceSelect(slot, pick) {
-  const taken = takenSpaceIds(slot.day, slot.start_time, slot.id);
+function renderSpaceSelect(item, pickIndex, pick) {
+  const taken = takenSpaceIds(
+    item.day,
+    item.start_time,
+    item.slot_id,
+    item.part_id,
+    pickIndex
+  );
   const currentSpaceId = pick?.space_id ?? null;
 
   const options = [
@@ -264,39 +345,52 @@ function renderSpaceSelect(slot, pick) {
       }),
   ].join('');
 
+  const partAttr = item.part_id ? ` data-part-id="${item.part_id}"` : '';
+
   return `
-    <select class="input reservar-space-select" data-slot-id="${slot.id}" aria-label="Espacio para ${escapeHtml(slot.classes?.name || 'clase')}">
-      ${options}
-    </select>
+    <label class="reservar-space-pick-label">
+      <span class="reservar-space-pick-hd">Espacio ${pickIndex}</span>
+      <select class="input reservar-space-select" data-slot-id="${item.slot_id}" data-pick-index="${pickIndex}"${partAttr} aria-label="Espacio ${pickIndex} para ${escapeHtml(item.class_name)}">
+        ${options}
+      </select>
+    </label>
   `;
 }
 
-function renderSlotRow(slot, ui) {
-  const pick = pickForSlot(slot.id);
-  const className = slot.classes?.name || 'Clase';
-  const dayLabel = WEEKDAY_LABELS[slot.day] || slot.day;
-  const timeRange = `${formatTime(slot.start_time)} – ${formatTime(slot.end_time)}`;
+function renderItemRow(item, ui) {
+  const picks = picksForItem(item);
+  const className = item.class_name;
+  const dayLabel = WEEKDAY_LABELS[item.day] || item.day;
+  const timeRange = `${formatTime(item.start_time)} – ${formatTime(item.end_time)}`;
+  const partLabel = item.is_multi ? `<span class="reservar-part-badge">Parte ${item.part_index === 1 ? 'A' : 'B'}</span>` : '';
 
   let pickDisplay = '';
-  if (pick) {
-    const status = pick.confirmed ? 'Confirmada' : 'Sin confirmar';
-    pickDisplay = `
-      <span class="reservar-pick-space">${escapeHtml(spaceNameById(pick.space_id))}</span>
-      <span class="reservar-pick-status${pick.confirmed ? ' reservar-pick-confirmed' : ''}">${status}</span>
-    `;
+  if (picks.length) {
+    pickDisplay = picks
+      .map((pick) => {
+        const status = pick.confirmed ? 'Confirmada' : 'Sin confirmar';
+        return `
+          <span class="reservar-pick-entry">
+            <span class="reservar-pick-space">${escapeHtml(spaceNameById(pick.space_id))}</span>
+            <span class="reservar-pick-status${pick.confirmed ? ' reservar-pick-confirmed' : ''}">${status}</span>
+          </span>
+        `;
+      })
+      .join('');
   } else {
     pickDisplay = '<span class="reservar-pick-empty">Sin reservar</span>';
   }
 
   const spaceControl = ui.canEditPicks
-    ? renderSpaceSelect(slot, pick)
+    ? `<div class="reservar-space-picks">${Array.from({ length: MAX_PICKS_PER_CLASS }, (_, i) => renderSpaceSelect(item, i + 1, pickForItemAtIndex(item, i + 1))).join('')}</div>`
     : pickDisplay;
 
   return `
-    <li class="reservar-slot-row">
+    <li class="reservar-slot-row${item.is_multi ? ' reservar-slot-row-multi' : ''}">
       <div class="reservar-slot-main">
         <strong class="reservar-slot-class">${escapeHtml(className)}</strong>
-        <span class="reservar-slot-meta">${escapeHtml(slot.grade)} · ${dayLabel} · ${timeRange}</span>
+        ${partLabel}
+        <span class="reservar-slot-meta">${escapeHtml(item.grade)} · ${dayLabel} · ${timeRange}</span>
       </div>
       <div class="reservar-slot-pick">${spaceControl}</div>
     </li>
@@ -332,7 +426,7 @@ function renderBanner(ui) {
       <div class="reservar-banner reservar-banner-active reservar-state reservar-state-your-turn">
         <span class="badge badge--state badge--state-your-turn reservar-state-badge">Tu turno</span>
         <p class="reservar-banner-title">¡Es tu turno!</p>
-        <p class="reservar-banner-text">Elige un espacio para cada franja y confirma con tu código personal.</p>
+        <p class="reservar-banner-text">Elige hasta 2 espacios por franja y confirma con tu código personal.</p>
         <div class="reservar-countdown-panel reservar-countdown-panel--active">
           <div class="reservar-countdown-wrap">
             <span class="reservar-countdown-label">Tiempo restante</span>
@@ -348,7 +442,7 @@ function renderBanner(ui) {
       <div class="reservar-banner reservar-banner-open reservar-state reservar-state-open">
         <span class="badge badge--state badge--state-open reservar-state-badge">Registro abierto</span>
         <p class="reservar-banner-title">Registro abierto</p>
-        <p class="reservar-banner-text">Elige un espacio para cada franja y confirma con tu código personal cuando termines.</p>
+        <p class="reservar-banner-text">Elige hasta 2 espacios por franja y confirma con tu código personal cuando termines.</p>
       </div>
     `;
   }
@@ -386,15 +480,15 @@ function renderContent() {
     return;
   }
 
-  const slotRows = state.slots.length
-    ? state.slots.map((slot) => renderSlotRow(slot, ui)).join('')
+  const itemRows = state.bookingItems.length
+    ? state.bookingItems.map((item) => renderItemRow(item, ui)).join('')
     : '<p class="reservar-empty">No tienes franjas asignadas en el horario.</p>';
 
   root.innerHTML = `
     ${renderBanner(ui)}
     <section class="reservar-slots-section">
       <h3 class="reservar-section-title">Tus franjas</h3>
-      <ul class="reservar-slot-list">${slotRows}</ul>
+      <ul class="reservar-slot-list">${itemRows}</ul>
     </section>
     ${renderConfirmRow(ui)}
   `;
@@ -435,6 +529,8 @@ function startCountdown(turnEndsAt) {
 
 async function handleSpaceChange(select) {
   const slotId = select.dataset.slotId;
+  const partId = select.dataset.partId || null;
+  const pickIndex = Number(select.dataset.pickIndex || 1);
   const spaceVal = select.value;
   const prevValue = select.dataset.prevValue ?? '';
 
@@ -442,12 +538,15 @@ async function handleSpaceChange(select) {
   select.disabled = true;
 
   try {
+    const rpcArgs = { p_slot_id: slotId, p_pick_index: pickIndex };
+    if (partId) rpcArgs.p_slot_part_id = partId;
+
     if (!spaceVal) {
-      const { error } = await supabase.rpc('remove_pick', { p_slot_id: slotId });
+      const { error } = await supabase.rpc('remove_pick', rpcArgs);
       if (error) throw error;
     } else {
       const { error } = await supabase.rpc('place_pick', {
-        p_slot_id: slotId,
+        ...rpcArgs,
         p_space_id: Number(spaceVal),
       });
       if (error) throw error;
@@ -504,21 +603,21 @@ async function refresh() {
     state.turns = [];
     state.reservations = [];
     state.teacherNames = {};
-    state.slots = await fetchSlots();
+    state.bookingItems = await fetchBookingItems();
     state.spaces = await fetchSpaces();
     renderContent();
     return;
   }
 
-  const [turns, slots, spaces, reservations] = await Promise.all([
+  const [turns, bookingItems, spaces, reservations] = await Promise.all([
     fetchTurns(state.session.id),
-    fetchSlots(),
+    fetchBookingItems(),
     fetchSpaces(),
     fetchSessionReservations(state.session.id),
   ]);
 
   state.turns = turns;
-  state.slots = slots;
+  state.bookingItems = bookingItems;
   state.spaces = spaces;
   state.reservations = reservations;
   state.teacherNames = await fetchProfileNameMap(turns.map((t) => t.teacher_id));
@@ -592,7 +691,7 @@ export async function mountReservarEspacio(profile) {
   state.profile = profile;
   state.session = null;
   state.turns = [];
-  state.slots = [];
+  state.bookingItems = [];
   state.spaces = [];
   state.reservations = [];
   state.advanceAttemptedFor = null;

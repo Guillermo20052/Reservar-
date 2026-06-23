@@ -158,6 +158,16 @@ async function fetchAssignedTeachers() {
     }
   }
 
+  const { data: partTeachers, error: partError } = await supabase
+    .from('timetable_slot_part_teachers')
+    .select('teacher_id');
+
+  if (!partError) {
+    for (const row of partTeachers ?? []) {
+      if (row.teacher_id) ids.add(row.teacher_id);
+    }
+  }
+
   const { data: legacy, error: legacyError } = await supabase
     .from('timetable_slots')
     .select('teacher_id')
