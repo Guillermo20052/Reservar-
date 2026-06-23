@@ -212,7 +212,8 @@
       if (!window.supabase?.createClient) {
         throw new Error('No se pudo cargar Supabase. Comprueba tu conexión e inténtalo de nuevo.');
       }
-      const { redirectIfLoggedIn } = await import('./js/auth.js');
+      const { completeSessionFromUrl, redirectIfLoggedIn } = await import('./js/auth.js');
+      await completeSessionFromUrl();
       await redirectIfLoggedIn();
     } catch (err) {
       showAlert(err.message || 'No se pudo inicializar la sesión.');

@@ -78,9 +78,22 @@ export async function updatePassword(password) {
   return data;
 }
 
-function hashIndicatesRecovery() {
-  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-  return params.get('type') === 'recovery';
+function parseAuthHash() {
+  const raw = window.location.hash.replace(/^#/, '');
+  if (!raw) return null;
+  const params = new URLSearchParams(raw);
+  const access_token = params.get('access_token');
+  const refresh_token = params.get('refresh_token');
+  if (!access_token || !refresh_token) return null;
+  return {
+    access_token,
+    refresh_token,
+    type: params.get('type'),
+  };
+}
+
+function clearAuthUrl() {
+  window.history.replaceState({}, document.title, window.location.pathname);
 }
 
 export async function establishRecoverySession() {
@@ -90,36 +103,47 @@ export async function establishRecoverySession() {
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) throw error;
-    window.history.replaceState({}, document.title, window.location.pathname);
+    clearAuthUrl();
     return data.session;
   }
 
-  if (hashIndicatesRecovery()) {
-    const { data, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    if (data.session) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-      return data.session;
-    }
-
-    return new Promise((resolve, reject) => {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === 'PASSWORD_RECOVERY' && session) {
-          clearTimeout(timeout);
-          subscription.unsubscribe();
-          window.history.replaceState({}, document.title, window.location.pathname);
-          resolve(session);
-        }
-      });
-
-      const timeout = setTimeout(() => {
-        subscription.unsubscribe();
-        reject(new Error('El enlace de recuperación expiró o no es válido.'));
-      }, 10000);
+  const hash = parseAuthHash();
+  if (hash) {
+    const { data, error } = await supabase.auth.setSession({
+      access_token: hash.access_token,
+      refresh_token: hash.refresh_token,
     });
+    if (error) throw error;
+    clearAuthUrl();
+    return data.session;
   }
 
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
   return data.session;
+}
+
+export async function completeSessionFromUrl() {
+  const session = await establishRecoverySession();
+  if (session) return session;
+
+  if (!window.location.hash && !window.location.search.includes('code=')) {
+    return null;
+  }
+
+  return new Promise((resolve, reject) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
+        clearTimeout(timeout);
+        subscription.unsubscribe();
+        clearAuthUrl();
+        resolve(session);
+      }
+    });
+
+    const timeout = setTimeout(() => {
+      subscription.unsubscribe();
+      reject(new Error('El enlace expiró o no es válido.'));
+    }, 8000);
+  });
 }
