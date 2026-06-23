@@ -60,3 +60,66 @@ export async function redirectIfLoggedIn(redirectTo = 'home.html') {
     window.location.href = redirectTo;
   }
 }
+
+export function getPasswordResetRedirectUrl() {
+  return new URL('reset-password.html', window.location.href).href;
+}
+
+export async function requestPasswordReset(email) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    redirectTo: getPasswordResetRedirectUrl(),
+  });
+  if (error) throw error;
+}
+
+export async function updatePassword(password) {
+  const { data, error } = await supabase.auth.updateUser({ password });
+  if (error) throw error;
+  return data;
+}
+
+function hashIndicatesRecovery() {
+  const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  return params.get('type') === 'recovery';
+}
+
+export async function establishRecoverySession() {
+  const query = new URLSearchParams(window.location.search);
+  const code = query.get('code');
+
+  if (code) {
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) throw error;
+    window.history.replaceState({}, document.title, window.location.pathname);
+    return data.session;
+  }
+
+  if (hashIndicatesRecovery()) {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (data.session) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return data.session;
+    }
+
+    return new Promise((resolve, reject) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'PASSWORD_RECOVERY' && session) {
+          clearTimeout(timeout);
+          subscription.unsubscribe();
+          window.history.replaceState({}, document.title, window.location.pathname);
+          resolve(session);
+        }
+      });
+
+      const timeout = setTimeout(() => {
+        subscription.unsubscribe();
+        reject(new Error('El enlace de recuperación expiró o no es válido.'));
+      }, 10000);
+    });
+  }
+
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return data.session;
+}

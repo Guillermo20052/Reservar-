@@ -45,10 +45,20 @@
             </div>
           </div>
           <p class="auth-links">
-            <a class="link-brand" href="#">¿Olvidaste tu contraseña?</a>
+            <button type="button" class="link-brand" id="switch-to-forgot">¿Olvidaste tu contraseña?</button>
           </p>
           <button type="button" class="btn btn-primary btn-block" id="login-submit">Entrar</button>
           <p class="auth-switch">¿No tienes cuenta? <button type="button" class="link-brand" id="switch-to-signup">Regístrate</button></p>
+        </form>
+
+        <form id="form-forgot" hidden novalidate method="post" action="." onsubmit="return false">
+          <p class="auth-lede" style="margin-bottom:18px">Te enviaremos un enlace a tu correo para restablecer tu contraseña.</p>
+          <div class="form-group">
+            <label for="forgot-email">Correo electrónico</label>
+            <input class="input" id="forgot-email" type="email" name="email" autocomplete="email" required>
+          </div>
+          <button type="button" class="btn btn-primary btn-block" id="forgot-submit">Enviar enlace</button>
+          <p class="auth-switch">¿Recuerdas tu contraseña? <button type="button" class="link-brand" id="switch-to-login-from-forgot">Inicia sesión</button></p>
         </form>
 
         <form id="form-signup" hidden novalidate method="post" action="." onsubmit="return false">
@@ -84,6 +94,8 @@
     const tabSignup = document.getElementById('tab-signup');
     const formLogin = document.getElementById('form-login');
     const formSignup = document.getElementById('form-signup');
+    const formForgot = document.getElementById('form-forgot');
+    const tabsBar = document.querySelector('.tabs');
     const alertBox = document.getElementById('alert');
 
     function showAlert(message, type = 'error') {
@@ -99,12 +111,16 @@
 
     function setMode(mode) {
       const isLogin = mode === 'login';
+      const isSignup = mode === 'signup';
+      const isForgot = mode === 'forgot';
       tabLogin.classList.toggle('active', isLogin);
-      tabSignup.classList.toggle('active', !isLogin);
+      tabSignup.classList.toggle('active', isSignup);
       tabLogin.setAttribute('aria-selected', String(isLogin));
-      tabSignup.setAttribute('aria-selected', String(!isLogin));
+      tabSignup.setAttribute('aria-selected', String(isSignup));
+      tabsBar.hidden = isForgot;
       formLogin.hidden = !isLogin;
-      formSignup.hidden = isLogin;
+      formSignup.hidden = !isSignup;
+      formForgot.hidden = !isForgot;
       hideAlert();
     }
 
@@ -112,6 +128,12 @@
     tabSignup.addEventListener('click', () => setMode('signup'));
     document.getElementById('switch-to-signup')?.addEventListener('click', () => setMode('signup'));
     document.getElementById('switch-to-login')?.addEventListener('click', () => setMode('login'));
+    document.getElementById('switch-to-forgot')?.addEventListener('click', () => {
+      const loginEmail = document.getElementById('login-email').value.trim();
+      if (loginEmail) document.getElementById('forgot-email').value = loginEmail;
+      setMode('forgot');
+    });
+    document.getElementById('switch-to-login-from-forgot')?.addEventListener('click', () => setMode('login'));
 
     async function handleLogin(e) {
       e.preventDefault();
@@ -126,6 +148,22 @@
         );
       } catch (err) {
         showAlert(err.message || 'No se pudo iniciar sesión.');
+        btn.disabled = false;
+      }
+    }
+
+    async function handleForgot(e) {
+      e.preventDefault();
+      hideAlert();
+      const btn = document.getElementById('forgot-submit');
+      btn.disabled = true;
+      try {
+        const { requestPasswordReset } = await import('./js/auth.js');
+        await requestPasswordReset(document.getElementById('forgot-email').value);
+        showAlert('Revisa tu correo: te enviamos un enlace para restablecer tu contraseña.', 'success');
+      } catch (err) {
+        showAlert(err.message || 'No se pudo enviar el enlace de recuperación.');
+      } finally {
         btn.disabled = false;
       }
     }
@@ -153,8 +191,10 @@
 
     formLogin.addEventListener('submit', handleLogin);
     formSignup.addEventListener('submit', handleSignup);
+    formForgot.addEventListener('submit', handleForgot);
     document.getElementById('login-submit')?.addEventListener('click', handleLogin);
     document.getElementById('signup-submit')?.addEventListener('click', handleSignup);
+    document.getElementById('forgot-submit')?.addEventListener('click', handleForgot);
 
     document.querySelectorAll('.password-toggle').forEach((btn) => {
       btn.addEventListener('click', () => {
