@@ -84,11 +84,25 @@ function parseAuthHash() {
   const params = new URLSearchParams(raw);
   const access_token = params.get('access_token');
   const refresh_token = params.get('refresh_token');
-  if (!access_token || !refresh_token) return null;
+  if (!access_token) return null;
   return {
     access_token,
-    refresh_token,
+    refresh_token: refresh_token || '',
     type: params.get('type'),
+  };
+}
+
+function getAuthParamsFromUrl() {
+  const captured = window.__SB_AUTH_PARAMS__;
+  if (captured?.access_token || captured?.code) return captured;
+
+  const query = new URLSearchParams(window.location.search);
+  const hash = parseAuthHash();
+  return {
+    code: query.get('code'),
+    access_token: hash?.access_token ?? null,
+    refresh_token: hash?.refresh_token ?? null,
+    type: hash?.type ?? null,
   };
 }
 
@@ -96,23 +110,41 @@ function clearAuthUrl() {
   window.history.replaceState({}, document.title, window.location.pathname);
 }
 
-export async function establishRecoverySession() {
-  const query = new URLSearchParams(window.location.search);
-  const code = query.get('code');
+async function withTimeout(promise, ms, message) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
-  if (code) {
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+export async function establishRecoverySession() {
+  const params = getAuthParamsFromUrl();
+
+  if (params.code) {
+    const { data, error } = await withTimeout(
+      supabase.auth.exchangeCodeForSession(params.code),
+      15000,
+      'La verificación del enlace tardó demasiado. Inténtalo de nuevo.'
+    );
     if (error) throw error;
     clearAuthUrl();
     return data.session;
   }
 
-  const hash = parseAuthHash();
-  if (hash) {
-    const { data, error } = await supabase.auth.setSession({
-      access_token: hash.access_token,
-      refresh_token: hash.refresh_token,
-    });
+  if (params.access_token) {
+    const { data, error } = await withTimeout(
+      supabase.auth.setSession({
+        access_token: params.access_token,
+        refresh_token: params.refresh_token || '',
+      }),
+      15000,
+      'La verificación del enlace tardó demasiado. Inténtalo de nuevo.'
+    );
     if (error) throw error;
     clearAuthUrl();
     return data.session;
@@ -124,26 +156,5 @@ export async function establishRecoverySession() {
 }
 
 export async function completeSessionFromUrl() {
-  const session = await establishRecoverySession();
-  if (session) return session;
-
-  if (!window.location.hash && !window.location.search.includes('code=')) {
-    return null;
-  }
-
-  return new Promise((resolve, reject) => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session && (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'INITIAL_SESSION')) {
-        clearTimeout(timeout);
-        subscription.unsubscribe();
-        clearAuthUrl();
-        resolve(session);
-      }
-    });
-
-    const timeout = setTimeout(() => {
-      subscription.unsubscribe();
-      reject(new Error('El enlace expiró o no es válido.'));
-    }, 8000);
-  });
+  return establishRecoverySession();
 }
