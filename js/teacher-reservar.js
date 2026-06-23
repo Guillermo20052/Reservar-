@@ -96,6 +96,7 @@ function unsubscribeDraft() {
 function cleanup() {
   clearCountdown();
   unsubscribeDraft();
+  hideConfirmSuccess();
   if (state.debounceTimer) {
     clearTimeout(state.debounceTimer);
     state.debounceTimer = null;
@@ -317,6 +318,81 @@ function spaceNameById(spaceId) {
   return state.spaces.find((s) => s.id === spaceId)?.name ?? '—';
 }
 
+function teacherDisplayName(teacherId) {
+  if (teacherId === state.profile?.id) return 'Tú';
+  return state.teacherNames[teacherId] || 'Otra maestra';
+}
+
+function turnStatusLabel(status) {
+  switch (status) {
+    case 'done':
+      return 'hecho';
+    case 'skipped':
+      return 'saltado';
+    case 'active':
+      return 'en turno';
+    default:
+      return 'pendiente';
+  }
+}
+
+function renderDraftQueueInfo(ui) {
+  if (state.session?.phase !== 'live') return '';
+
+  const total = state.turns.length;
+  const lines = [];
+
+  if (ui.myTurn) {
+    lines.push(
+      `<p class="reservar-queue-line"><strong>Tu posición:</strong> ${ui.myTurn.position} de ${total} <span class="reservar-queue-status">(${turnStatusLabel(ui.myTurn.status)})</span></p>`
+    );
+  }
+
+  if (ui.activeTurn) {
+    const name = teacherDisplayName(ui.activeTurn.teacher_id);
+    lines.push(
+      `<p class="reservar-queue-line"><strong>Eligiendo ahora:</strong> posición ${ui.activeTurn.position} — ${escapeHtml(name)}</p>`
+    );
+  }
+
+  if (!lines.length) return '';
+  return `<div class="reservar-queue-panel">${lines.join('')}</div>`;
+}
+
+function ensureConfirmSuccessModal() {
+  let overlay = document.getElementById('reservar-success-overlay');
+  if (overlay) return overlay;
+
+  overlay = document.createElement('div');
+  overlay.id = 'reservar-success-overlay';
+  overlay.className = 'reservar-success-overlay';
+  overlay.hidden = true;
+  overlay.innerHTML = `
+    <div class="reservar-success-dialog" role="dialog" aria-labelledby="reservar-success-title" aria-modal="true">
+      <p class="reservar-success-title" id="reservar-success-title">¡Listo!</p>
+      <p class="reservar-success-text">Tus clases han sido registradas correctamente.</p>
+      <button type="button" class="btn btn-primary reservar-success-ok" id="reservar-success-ok">OK</button>
+    </div>
+  `;
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) hideConfirmSuccess();
+  });
+  overlay.querySelector('#reservar-success-ok')?.addEventListener('click', hideConfirmSuccess);
+
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function showConfirmSuccess() {
+  ensureConfirmSuccessModal().hidden = false;
+}
+
+function hideConfirmSuccess() {
+  const overlay = document.getElementById('reservar-success-overlay');
+  if (overlay) overlay.hidden = true;
+}
+
 function buildPanelShell() {
   return `
     <h2 class="panel-title">Reservar mi espacio</h2>
@@ -399,18 +475,12 @@ function renderItemRow(item, ui) {
 
 function renderBanner(ui) {
   if (ui.kind === 'waiting') {
-    const activeName = ui.activeTurn?.teacher_id
-      ? (state.teacherNames[ui.activeTurn.teacher_id] || 'Otra maestra')
-      : 'Otra maestra';
-    const posLine = ui.myTurn
-      ? `<p class="reservar-queue">Tu turno: posición ${ui.myTurn.position} (${ui.myTurn.status === 'done' ? 'hecho' : ui.myTurn.status === 'skipped' ? 'saltado' : 'pendiente'})</p>`
-      : '';
     return `
       <div class="reservar-banner reservar-banner-waiting reservar-state reservar-state-waiting">
         <span class="badge badge--state badge--state-waiting reservar-state-badge">Esperando</span>
         <p class="reservar-banner-title">Esperando tu turno</p>
-        <p class="reservar-banner-text">Turno actual: <strong>${escapeHtml(activeName)}</strong></p>
-        ${posLine}
+        <p class="reservar-banner-text">Sigue el draft en vivo abajo. Cuando llegue tu posición podrás elegir espacios.</p>
+        ${renderDraftQueueInfo(ui)}
         <div class="reservar-countdown-panel">
           <div class="reservar-countdown-wrap">
             <span class="reservar-countdown-label">Tiempo restante del turno</span>
@@ -427,6 +497,7 @@ function renderBanner(ui) {
         <span class="badge badge--state badge--state-your-turn reservar-state-badge">Tu turno</span>
         <p class="reservar-banner-title">¡Es tu turno!</p>
         <p class="reservar-banner-text">Elige hasta 2 espacios por franja y confirma con tu código personal.</p>
+        ${renderDraftQueueInfo(ui)}
         <div class="reservar-countdown-panel reservar-countdown-panel--active">
           <div class="reservar-countdown-wrap">
             <span class="reservar-countdown-label">Tiempo restante</span>
@@ -583,6 +654,7 @@ async function handleConfirm(e) {
     if (error) throw error;
     input.value = '';
     await refresh();
+    showConfirmSuccess();
   } catch (err) {
     showAlert(friendlyError(err.message));
   } finally {

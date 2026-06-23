@@ -72,7 +72,8 @@ INSERT INTO public.spaces (id, name, sort_order) VALUES
   (14, 'Radices 2', 10),
   (12, 'Virtus', 11),
   (13, 'Vesta', 12),
-  (15, 'Caelum', 13)
+  (15, 'Caelum', 13),
+  (16, 'Cora', 14)
 ON CONFLICT (id) DO UPDATE
 SET name = EXCLUDED.name, sort_order = EXCLUDED.sort_order;
 
