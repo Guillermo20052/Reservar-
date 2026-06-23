@@ -61,6 +61,21 @@ function teacherNameById(id) {
   return state.teachers.find((t) => t.id === id)?.full_name ?? 'Sin asignar';
 }
 
+function slotTeacherIds(slot) {
+  const rows = slot.timetable_slot_teachers ?? [];
+  const fromJunction = rows.map((row) => row.teacher_id).filter(Boolean);
+  if (fromJunction.length) return fromJunction;
+  if (slot.teacher_id) return [slot.teacher_id];
+  return [];
+}
+
+function normalizeSlot(slot) {
+  return {
+    ...slot,
+    teacher_ids: slotTeacherIds(slot),
+  };
+}
+
 function slotCountForClass(classId) {
   return state.slotCountByClass[classId] ?? 0;
 }
@@ -69,6 +84,11 @@ function slotCountLabel(count) {
   if (count === 0) return '· Sin franjas en el horario';
   if (count === 1) return '· 1 franja en el horario';
   return `· ${count} franjas en el horario`;
+}
+
+function teacherNamesLabel(teacherIds) {
+  if (!teacherIds.length) return 'Sin asignar';
+  return teacherIds.map((id) => teacherNameById(id)).join(', ');
 }
 
 async function fetchClasses() {
@@ -90,10 +110,19 @@ async function fetchTeachers() {
 async function fetchSlots(grade) {
   const { data, error } = await supabase
     .from('timetable_slots')
-    .select('id, class_id, teacher_id, grade, day, start_time, end_time')
+    .select('id, class_id, grade, day, start_time, end_time, teacher_id, timetable_slot_teachers(teacher_id)')
     .eq('grade', grade);
-  if (error) throw error;
-  return data ?? [];
+
+  if (error) {
+    const { data: legacy, error: legacyError } = await supabase
+      .from('timetable_slots')
+      .select('id, class_id, grade, day, start_time, end_time, teacher_id')
+      .eq('grade', grade);
+    if (legacyError) throw legacyError;
+    return (legacy ?? []).map(normalizeSlot);
+  }
+
+  return (data ?? []).map(normalizeSlot);
 }
 
 async function fetchSlotCountsByClass() {
@@ -105,6 +134,27 @@ async function fetchSlotCountsByClass() {
     counts[row.class_id] = (counts[row.class_id] ?? 0) + 1;
   }
   return counts;
+}
+
+async function syncSlotTeachers(slotId, teacherIds) {
+  const { error: deleteError } = await supabase
+    .from('timetable_slot_teachers')
+    .delete()
+    .eq('slot_id', slotId);
+  if (deleteError) throw deleteError;
+
+  if (!teacherIds.length) return;
+
+  const { error: insertError } = await supabase.from('timetable_slot_teachers').insert(
+    teacherIds.map((teacher_id) => ({ slot_id: slotId, teacher_id }))
+  );
+  if (insertError) throw insertError;
+}
+
+function getSelectedTeacherIds() {
+  return [...document.querySelectorAll('.horario-teacher-checkbox:checked')].map(
+    (input) => input.dataset.teacherId
+  );
 }
 
 function buildPanelShell() {
@@ -136,7 +186,7 @@ function buildPanelShell() {
 
     <section class="horario-section horario-step">
       <h3 class="horario-step-title">2 · Horario por grado</h3>
-      <p class="horario-step-lede">Elige un grado, coloca cada materia en su día y hora, y asigna la maestra a cargo.</p>
+      <p class="horario-step-lede">Elige un grado, coloca cada materia en su día y hora, y asigna una o más maestras a cargo.</p>
 
       <div id="horario-step2-gate" class="horario-step-gate" hidden>
         <p>Primero crea materias arriba.</p>
@@ -175,10 +225,8 @@ function buildPanelShell() {
                   <input class="input" id="horario-slot-end" type="time" required>
                 </div>
                 <div class="form-group horario-teacher-field">
-                  <label for="horario-slot-teacher">Maestra a cargo</label>
-                  <select class="input" id="horario-slot-teacher">
-                    <option value="">Sin asignar</option>
-                  </select>
+                  <span class="horario-teacher-label" id="horario-slot-teachers-label">Maestras a cargo</span>
+                  <div id="horario-slot-teachers" class="horario-teacher-list"></div>
                 </div>
               </div>
               <div class="horario-form-actions">
@@ -257,16 +305,16 @@ function renderWeeklyGrid() {
 
     const cards = daySlots.length
       ? daySlots.map((slot) => {
-          const hasTeacher = Boolean(slot.teacher_id);
-          const teacherBlock = hasTeacher
-            ? `<span class="horario-slot-teacher">${escapeHtml(teacherNameById(slot.teacher_id))}</span>`
+          const hasTeachers = slot.teacher_ids.length > 0;
+          const teacherBlock = hasTeachers
+            ? `<span class="horario-slot-teacher">${escapeHtml(teacherNamesLabel(slot.teacher_ids))}</span>`
             : `
               <span class="horario-slot-teacher horario-slot-unassigned">Sin asignar</span>
-              <button type="button" class="btn btn-ghost horario-btn-sm horario-assign-btn" data-assign-teacher="${slot.id}">Asignar maestra</button>
+              <button type="button" class="btn btn-ghost horario-btn-sm horario-assign-btn" data-assign-teacher="${slot.id}">Asignar maestras</button>
             `;
 
           return `
-            <article class="horario-slot-card${hasTeacher ? '' : ' horario-slot-card-unassigned'}">
+            <article class="horario-slot-card${hasTeachers ? '' : ' horario-slot-card-unassigned'}">
               <div class="horario-slot-main">
                 <strong>${escapeHtml(classNameById(slot.class_id))}</strong>
                 <span class="horario-slot-time">${formatTime(slot.start_time)} – ${formatTime(slot.end_time)}</span>
@@ -290,28 +338,46 @@ function renderWeeklyGrid() {
   }).join('');
 }
 
+function renderTeacherCheckboxes(selectedIds = []) {
+  const root = document.getElementById('horario-slot-teachers');
+  if (!root) return;
+
+  const selected = new Set(selectedIds);
+
+  if (!state.teachers.length) {
+    root.innerHTML = '<p class="horario-teacher-empty">No hay maestras registradas.</p>';
+    return;
+  }
+
+  root.innerHTML = state.teachers
+    .map((teacher) => {
+      const checked = selected.has(teacher.id) ? ' checked' : '';
+      return `
+        <label class="horario-teacher-toggle">
+          <input type="checkbox" class="horario-teacher-checkbox" data-teacher-id="${teacher.id}"${checked}>
+          <span>${escapeHtml(teacher.full_name || 'Sin nombre')}</span>
+        </label>
+      `;
+    })
+    .join('');
+}
+
 function populateFormSelects() {
   const classSelect = document.getElementById('horario-slot-class');
-  const teacherSelect = document.getElementById('horario-slot-teacher');
-  if (!classSelect || !teacherSelect) return;
+  if (!classSelect) return;
 
   const prevClass = classSelect.value;
-  const prevTeacher = teacherSelect.value;
 
   classSelect.innerHTML = state.classes.length
     ? state.classes.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')
     : '<option value="" disabled selected>No hay materias</option>';
 
-  teacherSelect.innerHTML = [
-    '<option value="">Sin asignar</option>',
-    ...state.teachers.map((t) => `<option value="${t.id}">${escapeHtml(t.full_name || 'Sin nombre')}</option>`),
-  ].join('');
-
   if (prevClass && state.classes.some((c) => c.id === prevClass)) {
     classSelect.value = prevClass;
   }
-  if (prevTeacher && state.teachers.some((t) => t.id === prevTeacher)) {
-    teacherSelect.value = prevTeacher;
+
+  if (!state.editingSlotId) {
+    renderTeacherCheckboxes();
   }
 }
 
@@ -345,6 +411,7 @@ function clearSlotForm() {
   form?.reset();
   document.getElementById('horario-form-title').textContent = 'Colocar en el horario';
   document.getElementById('horario-slot-cancel').hidden = true;
+  renderTeacherCheckboxes();
   updateFormChrome();
 }
 
@@ -354,7 +421,7 @@ function prefillSlotForm(slot, { focusTeacher = false } = {}) {
   document.getElementById('horario-slot-day').value = slot.day;
   document.getElementById('horario-slot-start').value = formatTime(slot.start_time);
   document.getElementById('horario-slot-end').value = formatTime(slot.end_time);
-  document.getElementById('horario-slot-teacher').value = slot.teacher_id ?? '';
+  renderTeacherCheckboxes(slot.teacher_ids);
   document.getElementById('horario-form-title').textContent = 'Editar franja';
   document.getElementById('horario-slot-cancel').hidden = false;
   updateFormChrome();
@@ -363,7 +430,7 @@ function prefillSlotForm(slot, { focusTeacher = false } = {}) {
 
   if (focusTeacher) {
     window.setTimeout(() => {
-      document.getElementById('horario-slot-teacher')?.focus();
+      document.querySelector('.horario-teacher-checkbox')?.focus();
     }, 200);
   }
 }
@@ -428,7 +495,7 @@ function wireEvents(panel) {
     const day = document.getElementById('horario-slot-day').value;
     const startTime = document.getElementById('horario-slot-start').value;
     const endTime = document.getElementById('horario-slot-end').value;
-    const teacherVal = document.getElementById('horario-slot-teacher').value;
+    const teacherIds = getSelectedTeacherIds();
 
     if (!classId) {
       showAlert('Crea al menos una materia antes de agregar al horario.');
@@ -441,7 +508,6 @@ function wireEvents(panel) {
 
     const payload = {
       class_id: classId,
-      teacher_id: teacherVal || null,
       grade: state.grade,
       day,
       start_time: startTime,
@@ -455,11 +521,18 @@ function wireEvents(panel) {
           .update(payload)
           .eq('id', state.editingSlotId);
         if (error) throw error;
+        await syncSlotTeachers(state.editingSlotId, teacherIds);
         clearSlotForm();
       } else {
-        const { error } = await supabase.from('timetable_slots').insert(payload);
+        const { data: newSlot, error } = await supabase
+          .from('timetable_slots')
+          .insert(payload)
+          .select('id')
+          .single();
         if (error) throw error;
+        await syncSlotTeachers(newSlot.id, teacherIds);
         document.getElementById('horario-slot-form').reset();
+        renderTeacherCheckboxes();
         updateFormChrome();
       }
       await refreshAll();

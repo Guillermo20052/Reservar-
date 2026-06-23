@@ -19,7 +19,7 @@ const PHASE_LABELS = {
  *   reservations: object[],
  *   assignedTeachers: object[],
  *   teacherNames: Record<string, string>,
- *   orderMode: 'random' | 'ordenado',
+ *   orderMode: 'random' | 'ordenado' | 'open',
  *   orderedTeacherIds: string[],
  *   draftChannel: object | null,
  *   countdownInterval: ReturnType<typeof setInterval> | null,
@@ -145,16 +145,33 @@ async function fetchReservations(sessionId) {
 }
 
 async function fetchAssignedTeachers() {
-  const { data, error } = await supabase
+  /** @type {Set<string>} */
+  const ids = new Set();
+
+  const { data: assigned, error: assignError } = await supabase
+    .from('timetable_slot_teachers')
+    .select('teacher_id');
+
+  if (!assignError) {
+    for (const row of assigned ?? []) {
+      if (row.teacher_id) ids.add(row.teacher_id);
+    }
+  }
+
+  const { data: legacy, error: legacyError } = await supabase
     .from('timetable_slots')
     .select('teacher_id')
     .not('teacher_id', 'is', null);
-  if (error) throw error;
 
-  const ids = [...new Set((data ?? []).map((row) => row.teacher_id).filter(Boolean))];
-  const nameMap = await fetchProfileNameMap(ids);
+  if (legacyError && ids.size === 0) throw legacyError;
 
-  return ids
+  for (const row of legacy ?? []) {
+    if (row.teacher_id) ids.add(row.teacher_id);
+  }
+
+  const nameMap = await fetchProfileNameMap([...ids]);
+
+  return [...ids]
     .map((id) => ({ id, full_name: nameMap[id] ?? null }))
     .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || '', 'es'));
 }
@@ -181,6 +198,7 @@ function renderSetup() {
 
   const hasTeachers = state.assignedTeachers.length > 0;
   const isOrdenado = state.orderMode === 'ordenado';
+  const isOpen = state.orderMode === 'open';
 
   const teacherList = isOrdenado
     ? state.orderedTeacherIds.map((id, index) => {
@@ -200,11 +218,21 @@ function renderSetup() {
         `<li class="draft-teacher-preview">${escapeHtml(t.full_name || 'Sin nombre')}</li>`
       ).join('');
 
+  const ledeText = isOpen
+    ? 'Todas las maestras podrán reservar sus espacios al mismo tiempo, sin turnos ni límite de tiempo. Al iniciar se borran todas las reservaciones actuales.'
+    : 'Elige el orden de turnos e inicia la ronda de reservaciones. Al iniciar se borran todas las reservaciones actuales.';
+
+  const teacherBlockTitle = isOpen
+    ? 'Maestras en el horario (registro libre simultáneo)'
+    : isOrdenado
+      ? 'Orden de turnos (usa ↑ ↓)'
+      : 'Maestras en el horario (el servidor elegirá el orden)';
+
   root.innerHTML = `
     <section class="draft-section">
-      <h3 class="draft-section-title">Iniciar draft semanal</h3>
+      <h3 class="draft-section-title">${isOpen ? 'Iniciar registro abierto' : 'Iniciar draft semanal'}</h3>
       <p class="draft-lede">
-        Elige el orden de turnos e inicia la ronda de reservaciones. Al iniciar se borran todas las reservaciones actuales.
+        ${ledeText}
         Las maestras deben estar asignadas en el horario antes de comenzar (pestaña <strong>Editar horario</strong>).
       </p>
 
@@ -213,22 +241,23 @@ function renderSetup() {
       `}
 
       <div class="draft-order-mode">
-        <span class="draft-order-label">Orden de turnos</span>
+        <span class="draft-order-label">Modo</span>
         <div class="draft-order-buttons">
           <button type="button" class="btn${state.orderMode === 'random' ? ' btn-primary' : ' btn-ghost'}" data-order-mode="random">Aleatorio</button>
           <button type="button" class="btn${state.orderMode === 'ordenado' ? ' btn-primary' : ' btn-ghost'}" data-order-mode="ordenado">Ordenado</button>
+          <button type="button" class="btn${state.orderMode === 'open' ? ' btn-primary' : ' btn-ghost'}" data-order-mode="open">Open</button>
         </div>
       </div>
 
       ${hasTeachers ? `
         <div class="draft-teacher-block">
-          <h4 class="draft-subtitle">${isOrdenado ? 'Orden de turnos (usa ↑ ↓)' : 'Maestras en el horario (el servidor elegirá el orden)'}</h4>
+          <h4 class="draft-subtitle">${teacherBlockTitle}</h4>
           <ul class="draft-reorder-list">${teacherList}</ul>
         </div>
       ` : ''}
 
       <div class="draft-actions">
-        <button type="button" class="btn btn-primary" id="draft-iniciar"${hasTeachers ? '' : ' disabled'}>Iniciar draft</button>
+        <button type="button" class="btn btn-primary" id="draft-iniciar"${hasTeachers ? '' : ' disabled'}>${isOpen ? 'Iniciar registro abierto' : 'Iniciar draft'}</button>
       </div>
     </section>
   `;
@@ -239,6 +268,11 @@ function renderLive() {
   if (!root) return;
 
   const session = state.session;
+  if (session.phase === 'open') {
+    renderOpenSession();
+    return;
+  }
+
   const phaseLabel = PHASE_LABELS[session.phase] || session.phase;
   const isLive = session.phase === 'live';
 
@@ -287,6 +321,67 @@ function renderLive() {
   }
 }
 
+function renderOpenSession() {
+  const root = document.getElementById('draft-content');
+  if (!root) return;
+
+  clearCountdown();
+
+  const session = state.session;
+  const startedDirectly = session.order_mode === 'open';
+
+  const teacherRows = state.assignedTeachers.map((t) => {
+    const counts = pickCountsForTeacher(t.id);
+    return `
+      <li class="draft-turn-row">
+        <span class="draft-turn-name">${escapeHtml(t.full_name || 'Sin nombre')}</span>
+        <span class="draft-turn-picks">${counts.confirmed}/${counts.total} confirmadas</span>
+      </li>
+    `;
+  }).join('');
+
+  const turnHistory = !startedDirectly && state.turns.length
+    ? `
+      <h3 class="draft-section-title">Turnos completados</h3>
+      <ul class="draft-turn-board">
+        ${state.turns.map((turn) => {
+          const name = teacherNameById(turn.teacher_id);
+          return `
+            <li class="draft-turn-row">
+              <span class="draft-turn-pos">${turn.position}</span>
+              <span class="draft-turn-name">${escapeHtml(name)}</span>
+              <span class="badge badge--${turn.status} draft-badge draft-badge-${turn.status}">${STATUS_LABELS[turn.status] || turn.status}</span>
+            </li>
+          `;
+        }).join('')}
+      </ul>
+    `
+    : '';
+
+  root.innerHTML = `
+    <section class="draft-section">
+      <div class="draft-live-header">
+        <span class="badge badge--phase badge--phase-open draft-phase-badge draft-phase-open">Abierto</span>
+      </div>
+
+      <p class="draft-lede">
+        ${startedDirectly
+          ? 'Registro libre activo — todas las maestras pueden reservar sus espacios sin turnos.'
+          : 'Fase abierta — las maestras que no terminaron en su turno pueden completar sus reservas.'}
+      </p>
+
+      <h3 class="draft-section-title">Progreso de reservas</h3>
+      <ul class="draft-turn-board">${teacherRows || '<li class="draft-empty">Sin maestras</li>'}</ul>
+
+      ${turnHistory}
+
+      <div class="draft-actions">
+        <button type="button" class="btn btn-ghost" id="draft-reset">Reiniciar</button>
+      </div>
+    </section>
+  `;
+}
+
 function startCountdown(turnEndsAt) {
   clearCountdown();
   const el = document.getElementById('draft-countdown');
@@ -329,7 +424,11 @@ async function handleIniciar() {
     return;
   }
 
-  if (!confirm('¿Iniciar el draft? Esto borrará todas las reservaciones actuales y comenzará una ronda nueva.')) {
+  if (!confirm(
+    state.orderMode === 'open'
+      ? '¿Iniciar registro abierto? Todas las maestras podrán reservar al mismo tiempo. Esto borrará todas las reservaciones actuales.'
+      : '¿Iniciar el draft? Esto borrará todas las reservaciones actuales y comenzará una ronda nueva.'
+  )) {
     return;
   }
 
@@ -387,6 +486,7 @@ async function refreshDraft() {
   if (state.session) {
     state.turns = await fetchTurns(state.session.id);
     state.reservations = await fetchReservations(state.session.id);
+    state.assignedTeachers = await fetchAssignedTeachers();
     await loadTeacherNames();
     renderLive();
     return;

@@ -25,7 +25,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS public.draft_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   phase public.draft_phase NOT NULL DEFAULT 'setup',
-  order_mode TEXT NOT NULL CHECK (order_mode IN ('random', 'ordenado')),
+  order_mode TEXT NOT NULL CHECK (order_mode IN ('random', 'ordenado', 'open')),
   current_position INT,
   turn_ends_at TIMESTAMPTZ,
   started_at TIMESTAMPTZ,
@@ -83,6 +83,9 @@ SET search_path = public
 AS $$
   SELECT COALESCE(array_agg(t.teacher_id ORDER BY t.teacher_id), '{}'::uuid[])
   FROM (
+    SELECT DISTINCT tst.teacher_id
+    FROM public.timetable_slot_teachers tst
+    UNION
     SELECT DISTINCT ts.teacher_id
     FROM public.timetable_slots ts
     WHERE ts.teacher_id IS NOT NULL
@@ -183,7 +186,7 @@ BEGIN
     RAISE EXCEPTION 'only admins can start draft';
   END IF;
 
-  IF p_order_mode NOT IN ('random', 'ordenado') THEN
+  IF p_order_mode NOT IN ('random', 'ordenado', 'open') THEN
     RAISE EXCEPTION 'invalid order_mode';
   END IF;
 
@@ -197,6 +200,26 @@ BEGIN
 
   IF array_length(v_teacher_ids, 1) IS NULL OR array_length(v_teacher_ids, 1) = 0 THEN
     RAISE EXCEPTION 'no teachers assigned in timetable';
+  END IF;
+
+  IF p_order_mode = 'open' THEN
+    INSERT INTO public.draft_sessions (
+      phase,
+      order_mode,
+      current_position,
+      turn_ends_at,
+      started_at
+    )
+    VALUES (
+      'open'::public.draft_phase,
+      'open',
+      NULL,
+      NULL,
+      NOW()
+    )
+    RETURNING id INTO v_session_id;
+
+    RETURN v_session_id;
   END IF;
 
   IF p_order_mode = 'random' THEN
@@ -298,7 +321,17 @@ BEGIN
     RAISE EXCEPTION 'slot not found';
   END IF;
 
-  IF v_slot.teacher_id IS DISTINCT FROM auth.uid() THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.timetable_slot_teachers tst
+    WHERE tst.slot_id = p_slot_id
+      AND tst.teacher_id = auth.uid()
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM public.timetable_slots ts
+    WHERE ts.id = p_slot_id
+      AND ts.teacher_id = auth.uid()
+  ) THEN
     RAISE EXCEPTION 'not your slot';
   END IF;
 
@@ -384,7 +417,17 @@ BEGIN
     RAISE EXCEPTION 'slot not found';
   END IF;
 
-  IF v_slot.teacher_id IS DISTINCT FROM auth.uid() THEN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.timetable_slot_teachers tst
+    WHERE tst.slot_id = p_slot_id
+      AND tst.teacher_id = auth.uid()
+  ) AND NOT EXISTS (
+    SELECT 1
+    FROM public.timetable_slots ts
+    WHERE ts.id = p_slot_id
+      AND ts.teacher_id = auth.uid()
+  ) THEN
     RAISE EXCEPTION 'not your slot';
   END IF;
 

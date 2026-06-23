@@ -91,6 +91,16 @@ CREATE TABLE IF NOT EXISTS public.timetable_slots (
   CONSTRAINT valid_time CHECK (end_time > start_time)
 );
 
+-- Multiple teachers per slot (preferred; teacher_id above is legacy)
+CREATE TABLE IF NOT EXISTS public.timetable_slot_teachers (
+  slot_id UUID NOT NULL REFERENCES public.timetable_slots (id) ON DELETE CASCADE,
+  teacher_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  PRIMARY KEY (slot_id, teacher_id)
+);
+
+CREATE INDEX IF NOT EXISTS timetable_slot_teachers_teacher_id_idx
+  ON public.timetable_slot_teachers (teacher_id);
+
 -- ---------------------------------------------------------------------------
 -- Teacher classes (self-declared interest at signup)
 -- ---------------------------------------------------------------------------
@@ -159,6 +169,7 @@ CREATE POLICY "Admins can select all profiles"
 ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.spaces ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.timetable_slots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.timetable_slot_teachers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teacher_classes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reservations ENABLE ROW LEVEL SECURITY;
 
@@ -255,6 +266,29 @@ CREATE POLICY "Admins can delete timetable_slots"
   TO authenticated
   USING (public.is_admin());
 
+-- timetable_slot_teachers
+DROP POLICY IF EXISTS "Authenticated can select timetable_slot_teachers" ON public.timetable_slot_teachers;
+DROP POLICY IF EXISTS "Admins can insert timetable_slot_teachers" ON public.timetable_slot_teachers;
+DROP POLICY IF EXISTS "Admins can delete timetable_slot_teachers" ON public.timetable_slot_teachers;
+
+CREATE POLICY "Authenticated can select timetable_slot_teachers"
+  ON public.timetable_slot_teachers
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+CREATE POLICY "Admins can insert timetable_slot_teachers"
+  ON public.timetable_slot_teachers
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (public.is_admin());
+
+CREATE POLICY "Admins can delete timetable_slot_teachers"
+  ON public.timetable_slot_teachers
+  FOR DELETE
+  TO authenticated
+  USING (public.is_admin());
+
 -- teacher_classes
 DROP POLICY IF EXISTS "Teachers can select own teacher_classes or admin all" ON public.teacher_classes;
 DROP POLICY IF EXISTS "Teachers can insert own teacher_classes" ON public.teacher_classes;
@@ -315,6 +349,7 @@ CREATE POLICY "Teachers and admins can delete reservations"
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.classes TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.spaces TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.timetable_slots TO authenticated;
+GRANT SELECT, INSERT, DELETE ON TABLE public.timetable_slot_teachers TO authenticated;
 GRANT SELECT, INSERT, DELETE ON TABLE public.teacher_classes TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.reservations TO authenticated;
 

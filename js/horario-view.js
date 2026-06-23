@@ -91,15 +91,40 @@ async function fetchProfileNameMap(ids) {
   return map;
 }
 
+function slotTeacherIds(slot) {
+  const rows = slot.timetable_slot_teachers ?? [];
+  const fromJunction = rows.map((row) => row.teacher_id).filter(Boolean);
+  if (fromJunction.length) return fromJunction;
+  if (slot.teacher_id) return [slot.teacher_id];
+  return [];
+}
+
 async function fetchSlots(grade) {
   const { data, error } = await supabase
     .from('timetable_slots')
-    .select('id, teacher_id, grade, day, start_time, end_time, classes(name)')
+    .select('id, teacher_id, grade, day, start_time, end_time, classes(name), timetable_slot_teachers(teacher_id)')
     .eq('grade', grade)
     .order('day')
     .order('start_time');
-  if (error) throw error;
-  return data ?? [];
+
+  if (error) {
+    const { data: legacy, error: legacyError } = await supabase
+      .from('timetable_slots')
+      .select('id, teacher_id, grade, day, start_time, end_time, classes(name)')
+      .eq('grade', grade)
+      .order('day')
+      .order('start_time');
+    if (legacyError) throw legacyError;
+    return (legacy ?? []).map((slot) => ({
+      ...slot,
+      teacher_ids: slotTeacherIds(slot),
+    }));
+  }
+
+  return (data ?? []).map((slot) => ({
+    ...slot,
+    teacher_ids: slotTeacherIds(slot),
+  }));
 }
 
 async function fetchSession() {
@@ -190,8 +215,8 @@ function renderGrid() {
     const cards = daySlots.length
       ? daySlots.map((slot) => {
           const className = slot.classes?.name || 'Clase';
-          const teacher = slot.teacher_id
-            ? (state.teacherNames[slot.teacher_id] || 'Sin asignar')
+          const teacher = slot.teacher_ids.length
+            ? slot.teacher_ids.map((id) => state.teacherNames[id] || 'Sin asignar').join(', ')
             : 'Sin asignar';
           const spaceName = state.spaceBySlotId[slot.id];
           const spaceHtml = spaceName
@@ -226,7 +251,7 @@ async function refresh() {
   hideAlert();
   state.slots = await fetchSlots(state.grade);
   state.teacherNames = await fetchProfileNameMap(
-    state.slots.map((s) => s.teacher_id)
+    state.slots.flatMap((s) => s.teacher_ids)
   );
   state.session = await fetchSession();
 

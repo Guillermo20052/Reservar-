@@ -718,6 +718,54 @@ button { font-family: inherit; cursor: pointer; }
   grid-column: 1 / -1;
 }
 
+.horario-teacher-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.horario-teacher-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.horario-teacher-empty {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.horario-teacher-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--ink);
+  transition: border-color .15s, background .15s;
+}
+
+.horario-teacher-toggle:has(.horario-teacher-checkbox:checked) {
+  border-color: rgba(45, 90, 74, .35);
+  background: rgba(45, 90, 74, .05);
+}
+
+.horario-teacher-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--brand);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 .horario-grade-empty {
   padding: 12px 14px;
   border-radius: 10px;

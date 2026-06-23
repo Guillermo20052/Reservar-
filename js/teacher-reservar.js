@@ -135,14 +135,40 @@ async function fetchTurns(sessionId) {
 }
 
 async function fetchSlots() {
-  const { data, error } = await supabase
+  const teacherId = state.profile.id;
+  /** @type {Map<string, object>} */
+  const slotMap = new Map();
+
+  const { data: assigned, error: assignError } = await supabase
+    .from('timetable_slot_teachers')
+    .select('timetable_slots(id, class_id, grade, day, start_time, end_time, classes(name))')
+    .eq('teacher_id', teacherId);
+
+  if (!assignError) {
+    for (const row of assigned ?? []) {
+      if (row.timetable_slots?.id) {
+        slotMap.set(row.timetable_slots.id, row.timetable_slots);
+      }
+    }
+  }
+
+  const { data: legacy, error: legacyError } = await supabase
     .from('timetable_slots')
     .select('id, class_id, grade, day, start_time, end_time, classes(name)')
-    .eq('teacher_id', state.profile.id)
-    .order('day')
-    .order('start_time');
-  if (error) throw error;
-  return data ?? [];
+    .eq('teacher_id', teacherId);
+
+  if (legacyError && slotMap.size === 0) throw legacyError;
+
+  for (const slot of legacy ?? []) {
+    slotMap.set(slot.id, slot);
+  }
+
+  return [...slotMap.values()].sort((a, b) => {
+    const dayOrder = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
+    const dayDiff = dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+    if (dayDiff !== 0) return dayDiff;
+    return String(a.start_time).localeCompare(String(b.start_time));
+  });
 }
 
 async function fetchSpaces() {
@@ -320,9 +346,9 @@ function renderBanner(ui) {
   if (ui.kind === 'open') {
     return `
       <div class="reservar-banner reservar-banner-open reservar-state reservar-state-open">
-        <span class="badge badge--state badge--state-open reservar-state-badge">Fase abierta</span>
-        <p class="reservar-banner-title">Fase abierta</p>
-        <p class="reservar-banner-text">Puedes completar o confirmar tus franjas restantes sin límite de turno.</p>
+        <span class="badge badge--state badge--state-open reservar-state-badge">Registro abierto</span>
+        <p class="reservar-banner-title">Registro abierto</p>
+        <p class="reservar-banner-text">Elige un espacio para cada franja y confirma con tu código personal cuando termines.</p>
       </div>
     `;
   }
