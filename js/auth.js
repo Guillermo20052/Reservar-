@@ -25,6 +25,7 @@ export async function signIn(email, password) {
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+  try { localStorage.removeItem('rw-role'); } catch (_) {}
   window.location.href = '/';
 }
 
@@ -54,6 +55,9 @@ export async function getProfile() {
 export async function resolvePostLoginTarget() {
   try {
     const profile = await getProfile();
+    if (profile?.role) {
+      try { localStorage.setItem('rw-role', profile.role); } catch (_) {}
+    }
     return profile?.role === 'student' ? 'student.html' : 'reservar.html';
   } catch {
     return 'reservar.html';

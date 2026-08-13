@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<script>try{if(localStorage.getItem('rw-role')==='student')location.replace('student.html');}catch(e){}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Espacios con propósito · Guía interactiva · PREPA</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -807,12 +808,19 @@ buildSelector();buildJourneys();buildSpaceCards();buildSearch();scrollSpy();
 try {
   const { supabase } = await import('./js/supabase.js');
   const { data, error } = await supabase.auth.getSession();
+  if (!error && !data?.session) {
+    // Logged out: clear the cached role so the head redirect never fires stale.
+    try { localStorage.removeItem('rw-role'); } catch (_) {}
+  }
   if (!error && data?.session) {
     // Students land on their own page; teacher/admin or any error stays here.
     let isStudent = false;
     try {
       const { getProfile } = await import('./js/auth.js');
       const profile = await getProfile();
+      if (profile?.role) {
+        try { localStorage.setItem('rw-role', profile.role); } catch (_) {}
+      }
       isStudent = profile?.role === 'student';
     } catch (_) { /* stay on the guide */ }
     if (isStudent) {

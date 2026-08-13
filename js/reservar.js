@@ -69,6 +69,11 @@ async function init() {
     return;
   }
 
+  try { localStorage.setItem('rw-role', profile.role); } catch (_) {}
+  if (profile.role === 'student') {
+    document.querySelector('.reserva-back')?.setAttribute('href', 'student.html');
+  }
+
   renderHeader(profile);
   renderTabs(profile.role);
   wireLogout();
