@@ -15,14 +15,14 @@ export async function signUp(email, password, fullName) {
 export async function signIn(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
-  window.location.href = 'home.html';
+  window.location.href = 'reservar.html';
   return data;
 }
 
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
-  window.location.href = 'index.html';
+  window.location.href = 'home.html';
 }
 
 export async function getSessionUser() {
@@ -54,7 +54,7 @@ export async function requireAuth(redirectTo = 'index.html') {
   return user;
 }
 
-export async function redirectIfLoggedIn(redirectTo = 'home.html') {
+export async function redirectIfLoggedIn(redirectTo = 'reservar.html') {
   const user = await getSessionUser();
   if (user) {
     window.location.href = redirectTo;

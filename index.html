@@ -6,7 +6,7 @@
   <title>Iniciar sesión · Espacios con propósito</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,400&family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/theme.css">
   <script src="js/auth-url-capture.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8"></script>
@@ -176,11 +176,15 @@
       btn.disabled = true;
       try {
         const { signUp } = await import('./js/auth.js');
-        await signUp(
+        const data = await signUp(
           document.getElementById('signup-email').value.trim(),
           document.getElementById('signup-password').value,
           document.getElementById('signup-name').value.trim()
         );
+        if (data?.session) {
+          window.location.href = 'reservar.html';
+          return;
+        }
         showAlert('Cuenta creada. Revisa tu correo si se requiere confirmación, luego inicia sesión.', 'success');
         setMode('login');
       } catch (err) {

@@ -1,27 +1,41 @@
-/* Shared design system — extracted from the Espacios guide for auth & future pages */
+/* Shared design system — aligned with normativa.html (Normativa Redwood 2026–2027) */
 
 :root {
-  --paper: #FBF8F3;
-  --paper2: #F4EEE5;
-  --ink: #2A2520;
-  --muted: #6E665C;
-  --faint: #A89F92;
-  --line: #E7DECF;
-  --brand: #B02934;
-  --brand-soft: #F7E9EA;
-  --c: #B02934;
+  /* Normativa Redwood palette */
+  --navy: #95001C;        /* rojo oscuro institucional — Pantone 200C */
+  --navy-deep: #6E0013;
+  --redwood: #FF2F3E;     /* rojo primario — Pantone Red 032C */
+  --redwood-deep: #D6001F;
+  --redwood-soft: #FFE9E6;
+  --pink: #FFB4AB;        /* Pantone 169C */
+  --paper: #FFF9F8;
+  --mist: #FDEEEC;
+  --ink: #2B2224;
+  --ink-soft: #6E5F61;
+  --line: #F3D9D5;
+  --white: #FFFFFF;
+  --radius: 14px;
+
+  /* legacy aliases mapped onto the normativa palette */
+  --paper2: var(--mist);
+  --muted: var(--ink-soft);
+  --faint: #B08A85;
+  --brand: var(--redwood-deep);
+  --brand-soft: var(--redwood-soft);
+  --c: var(--redwood-deep);
   --on: #fff;
-  --ink-c: #B02934;
-  --soft: #F7E9EA;
-  --bd: #E3C4C8;
-  --chip: #EFC9CE;
-  --chiptx: #8A1F28;
-  --shadow: 0 1px 2px rgba(40, 30, 20, .04), 0 8px 24px rgba(40, 30, 20, .06);
-  --shadow-lg: 0 12px 48px rgba(40, 30, 20, .16);
+  --ink-c: var(--navy);
+  --soft: var(--redwood-soft);
+  --bd: #FFC9C2;
+  --chip: #FFD9D4;
+  --chiptx: var(--navy);
+  --shadow: 0 1px 2px rgba(80, 0, 12, .04), 0 8px 24px rgba(80, 0, 12, .07);
+  --shadow-lg: 0 16px 48px rgba(80, 0, 12, .16);
   --r: 14px;
   --sidebar: 286px;
-  --serif: "Fraunces", Georgia, serif;
-  --sans: "Hanken Grotesk", system-ui, sans-serif;
+  --display: 'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Helvetica, 'Hanken Grotesk', Arial, sans-serif;
+  --serif: var(--display);
+  --sans: 'Neue Haas Grotesk Display Pro', 'Helvetica Neue', Helvetica, 'Hanken Grotesk', Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -35,7 +49,7 @@ body {
   background: var(--paper);
   background-image:
     radial-gradient(circle at 12% -5%, #fff 0%, transparent 45%),
-    radial-gradient(circle at 100% 0%, #FCEFE0 0%, transparent 35%);
+    radial-gradient(circle at 100% 0%, var(--mist) 0%, transparent 38%);
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -53,7 +67,13 @@ a { color: inherit; }
 
 button { font-family: inherit; cursor: pointer; }
 
-::selection { background: var(--brand); color: #fff; }
+::selection { background: #FFD9D4; color: var(--navy); }
+
+:focus-visible { outline: 2px solid var(--redwood); outline-offset: 2px; border-radius: 4px; }
+
+html { -webkit-tap-highlight-color: transparent; }
+
+a, button { touch-action: manipulation; }
 
 /* ---------- reusable components ---------- */
 
@@ -607,9 +627,9 @@ button { font-family: inherit; cursor: pointer; }
   gap: 12px;
   margin-top: 14px;
   padding: 12px 14px;
-  border: 1px solid rgba(45, 90, 74, .25);
+  border: 1px solid var(--bd);
   border-radius: 10px;
-  background: rgba(45, 90, 74, .06);
+  background: var(--redwood-soft);
 }
 
 .horario-info-text {
@@ -754,8 +774,8 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .horario-teacher-toggle:has(.horario-teacher-checkbox:checked) {
-  border-color: rgba(45, 90, 74, .35);
-  background: rgba(45, 90, 74, .05);
+  border-color: var(--bd);
+  background: var(--redwood-soft);
 }
 
 .horario-teacher-checkbox {
@@ -997,8 +1017,8 @@ button { font-family: inherit; cursor: pointer; }
 
 .usuarios-badge-teacher {
   color: var(--brand);
-  border-color: rgba(45, 90, 74, .25);
-  background: rgba(45, 90, 74, .06);
+  border-color: var(--bd);
+  background: var(--redwood-soft);
 }
 
 .usuarios-badge-admin {
@@ -1115,8 +1135,8 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .teacher-class-toggle:has(.teacher-class-checkbox:checked) {
-  border-color: rgba(45, 90, 74, .35);
-  background: rgba(45, 90, 74, .05);
+  border-color: var(--bd);
+  background: var(--redwood-soft);
 }
 
 .teacher-class-checkbox {
@@ -1255,8 +1275,8 @@ button { font-family: inherit; cursor: pointer; }
 
 .draft-phase-live {
   color: var(--brand);
-  border-color: rgba(45, 90, 74, .35);
-  background: rgba(45, 90, 74, .08);
+  border-color: var(--bd);
+  background: var(--redwood-soft);
 }
 
 .draft-phase-open {
@@ -1316,8 +1336,8 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .draft-turn-row-active {
-  border-color: rgba(45, 90, 74, .45);
-  background: rgba(45, 90, 74, .06);
+  border-color: var(--bd);
+  background: var(--redwood-soft);
   box-shadow: var(--shadow);
 }
 
@@ -1353,8 +1373,8 @@ button { font-family: inherit; cursor: pointer; }
 
 .draft-badge-active {
   color: var(--brand);
-  border-color: rgba(45, 90, 74, .3);
-  background: rgba(45, 90, 74, .1);
+  border-color: var(--bd);
+  background: var(--redwood-soft);
 }
 
 .draft-badge-done {
@@ -1390,8 +1410,8 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .reservar-banner-active {
-  background: rgba(45, 90, 74, .08);
-  border-color: rgba(45, 90, 74, .35);
+  background: var(--redwood-soft);
+  border-color: var(--bd);
 }
 
 .reservar-banner-open {
@@ -1855,8 +1875,8 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 800;
   color: var(--brand);
   padding: 6px 12px;
-  background: rgba(45, 90, 74, .06);
-  border: 1px solid rgba(45, 90, 74, .2);
+  background: var(--redwood-soft);
+  border: 1px solid var(--bd);
   border-radius: 999px;
 }
 
@@ -1967,8 +1987,8 @@ button { font-family: inherit; cursor: pointer; }
 
 .study-admin-badge-active {
   color: var(--brand);
-  border-color: rgba(45, 90, 74, .35);
-  background: rgba(45, 90, 74, .08);
+  border-color: var(--bd);
+  background: var(--redwood-soft);
 }
 
 .study-admin-badge-inactive {
@@ -1990,8 +2010,8 @@ button { font-family: inherit; cursor: pointer; }
 
 .study-admin-status-approved {
   color: var(--brand);
-  border-color: rgba(45, 90, 74, .35);
-  background: rgba(45, 90, 74, .08);
+  border-color: var(--bd);
+  background: var(--redwood-soft);
 }
 
 .study-admin-status-rejected {
@@ -2051,8 +2071,8 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 600;
   color: var(--brand);
   padding: 8px 12px;
-  background: rgba(45, 90, 74, .06);
-  border: 1px solid rgba(45, 90, 74, .2);
+  background: var(--redwood-soft);
+  border: 1px solid var(--bd);
   border-radius: 8px;
 }
 
@@ -2170,8 +2190,8 @@ button { font-family: inherit; cursor: pointer; }
 
 .study-book-status-approved {
   color: var(--brand);
-  border-color: rgba(45, 90, 74, .35);
-  background: rgba(45, 90, 74, .08);
+  border-color: var(--bd);
+  background: var(--redwood-soft);
 }
 
 .study-book-status-rejected {
@@ -2588,3 +2608,500 @@ button { font-family: inherit; cursor: pointer; }
   }
 }
 
+
+/* ═══════════════ Normativa Redwood skin — app polish layer (additive) ═══════════════ */
+
+body::-webkit-scrollbar { width: 11px; }
+body::-webkit-scrollbar-track { background: var(--paper); }
+body::-webkit-scrollbar-thumb { background: #E9B7B0; border-radius: 8px; border: 3px solid var(--paper); }
+body::-webkit-scrollbar-thumb:hover { background: var(--redwood); }
+
+button:active { transform: scale(.975); }
+
+.btn {
+  border-radius: 11px;
+  transition: transform .14s ease, box-shadow .18s ease, background-color .18s ease,
+    color .18s ease, border-color .18s ease, filter .18s ease;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--redwood), var(--redwood-deep));
+  border-color: transparent;
+  box-shadow: 0 6px 16px rgba(255, 47, 62, .25);
+}
+
+.btn-primary:hover {
+  filter: none;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(255, 47, 62, .32);
+}
+
+.btn-primary:disabled {
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-danger {
+  background: var(--redwood-deep);
+  color: #fff;
+  border-color: transparent;
+}
+
+.btn-danger:hover {
+  background: var(--navy);
+}
+
+.btn-danger:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.tab.active,
+.reserva-tabs .tab.active,
+.reserva-tab.active {
+  background: var(--navy);
+  color: #fff;
+}
+
+.panel-title,
+.horario-step-title,
+.horario-section-title,
+.teacher-profile-section-title,
+.draft-section-title,
+.reservar-section-title,
+.reservar-banner-title,
+.reservar-success-title,
+.study-admin-section-title,
+.study-book-section-title,
+.auth-title,
+.reserva-page-title {
+  color: var(--navy);
+  letter-spacing: -.015em;
+}
+
+.auth-title em,
+.reserva-page-title em {
+  color: var(--redwood);
+}
+
+.kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--redwood);
+}
+
+.reserva-main > .kicker::after {
+  content: "";
+  flex: 0 0 34px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--redwood), transparent);
+}
+
+.card {
+  border-radius: 16px;
+}
+
+.panel.card {
+  position: relative;
+  overflow: hidden;
+}
+
+.panel.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--redwood), #FF8A80);
+  border-radius: 16px 16px 0 0;
+}
+
+.auth-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+}
+
+.auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--redwood), #FF8A80);
+}
+
+.reserva-header {
+  position: relative;
+}
+
+.reserva-header::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--redwood), #FF7A6E);
+  box-shadow: 0 0 10px rgba(255, 47, 62, .35);
+}
+
+.horario-slot-card,
+.horario-view-slot {
+  border-radius: 12px;
+}
+
+.horario-view-slot:hover {
+  box-shadow: 0 10px 26px rgba(149, 0, 28, .10);
+  transform: translateY(-1px);
+}
+
+.horario-view-slot {
+  transition: border-color .15s, box-shadow .2s, transform .2s;
+}
+
+.horario-day-hd {
+  color: var(--navy);
+}
+
+.horario-slot-time {
+  color: var(--redwood-deep);
+}
+
+.horario-info {
+  border: 1px solid var(--bd);
+  background: linear-gradient(135deg, #FFF0EE, #FFE4E0);
+}
+
+.horario-grade-empty {
+  border: 1px solid rgba(180, 120, 40, .3);
+  background: rgba(180, 120, 40, .08);
+}
+
+/* ---------- admin horario UX overhaul (C2, additive) ---------- */
+
+.horario-step {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px 22px 20px;
+  box-shadow: var(--shadow);
+  margin-top: 22px;
+}
+
+.horario-step:first-of-type {
+  padding-top: 22px;
+}
+
+.horario-step .horario-step-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.horario-step-num {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 9px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--redwood-soft);
+  color: var(--redwood-deep);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.horario-step-gate {
+  border: 1px dashed var(--bd);
+  background: var(--paper);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.horario-gate-title {
+  margin: 0 0 8px;
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 15px;
+}
+
+.horario-gate-steps {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13.5px;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.horario-gate-steps li::marker {
+  color: var(--redwood);
+  font-weight: 800;
+}
+
+/* day pills */
+.horario-day-field {
+  grid-column: 1 / -1;
+}
+
+.horario-day-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.horario-day-checks .horario-day-check {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  text-transform: none;
+  letter-spacing: .01em;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color .15s, background .15s, color .15s, box-shadow .15s;
+}
+
+.horario-day-checks .horario-day-check input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.horario-day-checks .horario-day-check:hover {
+  border-color: var(--redwood);
+  color: var(--redwood-deep);
+}
+
+.horario-day-checks .horario-day-check:has(input:checked) {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(149, 0, 28, .22);
+}
+
+.horario-day-checks .horario-day-check:has(input:disabled) {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.horario-day-checks .horario-day-check:has(input:disabled):hover {
+  border-color: var(--line);
+  color: var(--muted);
+}
+
+.horario-day-checks .horario-day-check:has(input:checked):has(input:disabled),
+.horario-day-checks .horario-day-check:has(input:checked)[data-locked] {
+  opacity: 1;
+}
+
+.horario-day-hint {
+  margin: 8px 0 0;
+  font-size: 12.5px;
+  color: var(--faint);
+}
+
+/* time quick-picks */
+.horario-time-presets-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 4px 0 14px;
+}
+
+.horario-presets-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--faint);
+}
+
+.horario-time-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.horario-time-preset {
+  border: 1px solid #F0C6C0;
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 13px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--navy);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(80, 0, 12, .05);
+  transition: all .15s;
+}
+
+.horario-time-preset:hover {
+  border-color: var(--redwood);
+  color: var(--redwood);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(214, 0, 31, .12);
+}
+
+.horario-time-preset.active {
+  background: var(--redwood-soft);
+  border-color: var(--redwood);
+  color: var(--redwood-deep);
+}
+
+/* click-to-add */
+.horario-day-col {
+  cursor: default;
+}
+
+.horario-day-add {
+  width: 100%;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px dashed var(--bd);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--faint);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  transition: all .15s;
+}
+
+.horario-day-add:hover {
+  border-color: var(--redwood);
+  color: var(--redwood-deep);
+  background: var(--redwood-soft);
+}
+
+.horario-day-col-clickable {
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.horario-day-col-clickable:hover {
+  border-color: var(--bd);
+}
+
+/* success toast */
+.horario-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translate(-50%, 16px);
+  background: var(--navy);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 11px 20px;
+  border-radius: 999px;
+  box-shadow: 0 12px 32px rgba(80, 0, 12, .35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s, transform .22s;
+  z-index: 1200;
+  max-width: min(92vw, 560px);
+  text-align: center;
+}
+
+.horario-toast.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.horario-toast strong {
+  color: var(--pink);
+  font-weight: 700;
+}
+
+/* confirm dialog */
+.horario-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(43, 7, 12, .45);
+}
+
+.horario-confirm-overlay[hidden] {
+  display: none;
+}
+
+.horario-confirm-dialog {
+  width: min(100%, 400px);
+  padding: 24px 24px 20px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 64px rgba(80, 0, 12, .3);
+}
+
+.horario-confirm-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.horario-confirm-text {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.horario-confirm-text strong {
+  color: var(--redwood-deep);
+}
+
+.horario-confirm-ack {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--bd);
+  border-radius: 10px;
+  background: var(--redwood-soft);
+  font-size: 13.5px;
+  color: var(--ink);
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.horario-confirm-ack[hidden] {
+  display: none;
+}
+
+.horario-confirm-ack input {
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  accent-color: var(--redwood-deep);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.horario-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

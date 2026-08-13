@@ -259,6 +259,146 @@ async function syncSlotParts(slotId, parts) {
   }
 }
 
+function getSelectedDays() {
+  return WEEKDAYS.filter((day) =>
+    document.querySelector(`.horario-day-checkbox[data-day="${day}"]`)?.checked
+  );
+}
+
+function setSelectedDays(days) {
+  const set = new Set(days);
+  document.querySelectorAll('.horario-day-checkbox').forEach((cb) => {
+    cb.checked = set.has(cb.value);
+  });
+}
+
+function updateDayEditLock() {
+  const hint = document.getElementById('horario-day-hint');
+  if (hint) hint.hidden = !state.editingSlotId;
+}
+
+const DEFAULT_TIME_PRESETS = [
+  ['07:45', '09:00'],
+  ['09:00', '10:15'],
+  ['10:15', '11:30'],
+  ['11:30', '12:45'],
+  ['12:45', '14:00'],
+];
+
+function timePresetPairs() {
+  /** @type {Map<string, [string, string]>} */
+  const pairs = new Map();
+  for (const slot of state.slots) {
+    const start = formatTime(slot.start_time);
+    const end = formatTime(slot.end_time);
+    if (!start || !end) continue;
+    pairs.set(`${start}|${end}`, [start, end]);
+  }
+  if (pairs.size < 3) {
+    for (const [start, end] of DEFAULT_TIME_PRESETS) {
+      pairs.set(`${start}|${end}`, [start, end]);
+    }
+  }
+  return [...pairs.values()]
+    .sort((a, b) => timeToMinutes(a[0]) - timeToMinutes(b[0]))
+    .slice(0, 7);
+}
+
+function renderTimePresets() {
+  const root = document.getElementById('horario-time-presets');
+  if (!root) return;
+  root.innerHTML = timePresetPairs()
+    .map(
+      ([start, end]) =>
+        `<button type="button" class="horario-time-preset" data-start="${start}" data-end="${end}">${start} – ${end}</button>`
+    )
+    .join('');
+  syncActiveTimePreset();
+}
+
+function syncActiveTimePreset() {
+  const start = document.getElementById('horario-slot-start')?.value ?? '';
+  const end = document.getElementById('horario-slot-end')?.value ?? '';
+  document.querySelectorAll('.horario-time-preset').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.start === start && btn.dataset.end === end);
+  });
+}
+
+let toastTimer = null;
+
+function showToast(html) {
+  const toast = document.getElementById('horario-toast');
+  if (!toast) return;
+  toast.innerHTML = html;
+  toast.classList.add('show');
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 4200);
+}
+
+/**
+ * Styled confirm dialog. Resolves true when the user accepts.
+ * When `ackLabel` is given, an explicit acknowledgement checkbox must be
+ * checked before the accept button becomes enabled.
+ */
+function openConfirmDialog({ title, text, ackLabel = '', acceptLabel = 'Eliminar' }) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('horario-confirm-overlay');
+    const titleEl = document.getElementById('horario-confirm-title');
+    const textEl = document.getElementById('horario-confirm-text');
+    const ackRow = document.getElementById('horario-confirm-ack-row');
+    const ackBox = document.getElementById('horario-confirm-ack');
+    const ackLabelEl = document.getElementById('horario-confirm-ack-label');
+    const cancelBtn = document.getElementById('horario-confirm-cancel');
+    const acceptBtn = document.getElementById('horario-confirm-accept');
+
+    if (!overlay || !titleEl || !textEl || !ackRow || !ackBox || !cancelBtn || !acceptBtn) {
+      resolve(window.confirm(text));
+      return;
+    }
+
+    titleEl.textContent = title;
+    textEl.innerHTML = text;
+    acceptBtn.textContent = acceptLabel;
+
+    const needsAck = Boolean(ackLabel);
+    ackRow.hidden = !needsAck;
+    ackBox.checked = false;
+    if (ackLabelEl) ackLabelEl.textContent = ackLabel;
+    acceptBtn.disabled = needsAck;
+
+    const close = (result) => {
+      overlay.hidden = true;
+      ackBox.removeEventListener('change', onAck);
+      cancelBtn.removeEventListener('click', onCancel);
+      acceptBtn.removeEventListener('click', onAccept);
+      overlay.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    };
+
+    const onAck = () => {
+      acceptBtn.disabled = needsAck && !ackBox.checked;
+    };
+    const onCancel = () => close(false);
+    const onAccept = () => close(true);
+    const onBackdrop = (e) => {
+      if (e.target === overlay) close(false);
+    };
+    const onKey = (e) => {
+      if (e.key === 'Escape') close(false);
+    };
+
+    ackBox.addEventListener('change', onAck);
+    cancelBtn.addEventListener('click', onCancel);
+    acceptBtn.addEventListener('click', onAccept);
+    overlay.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+
+    overlay.hidden = false;
+    (needsAck ? ackBox : cancelBtn).focus();
+  });
+}
+
 function getSelectedTeacherIds() {
   return [...document.querySelectorAll('.horario-teacher-checkbox:checked')].map(
     (input) => input.dataset.teacherId
@@ -348,7 +488,7 @@ function buildPanelShell() {
     <div id="horario-alert" class="alert alert-error" hidden></div>
 
     <section class="horario-section horario-step">
-      <h3 class="horario-step-title">1 · Materias</h3>
+      <h3 class="horario-step-title"><span class="horario-step-num">1</span> Materias</h3>
       <p class="horario-step-lede">Define las materias que existen. Luego colócalas en el horario.</p>
       <form id="horario-create-class" class="horario-inline-form">
         <div class="form-group horario-inline-field">
@@ -361,11 +501,16 @@ function buildPanelShell() {
     </section>
 
     <section class="horario-section horario-step">
-      <h3 class="horario-step-title">2 · Horario por grado</h3>
-      <p class="horario-step-lede">Elige un grado, coloca cada materia en su día y hora, y asigna maestras. Usa <strong>Multi</strong> para franjas IB divididas (ej. Business + History, dos espacios).</p>
+      <h3 class="horario-step-title"><span class="horario-step-num">2</span> Horario por grado</h3>
+      <p class="horario-step-lede">Elige un grado, coloca cada materia en sus días y hora, y asigna maestras. Usa <strong>Multi</strong> para franjas IB divididas (ej. Business + History, dos espacios).</p>
 
       <div id="horario-step2-gate" class="horario-step-gate" hidden>
-        <p>Primero crea materias arriba.</p>
+        <p class="horario-gate-title">Aún no hay materias — así se arma el horario:</p>
+        <ol class="horario-gate-steps">
+          <li>Crea tus materias en el paso 1 (ej. Física, Business IB).</li>
+          <li>Marca los días de la semana y la hora en el formulario de abajo.</li>
+          <li>Agrega la clase: se colocará en todos los días marcados y aparecerá en la vista semanal.</li>
+        </ol>
       </div>
 
       <div id="horario-step2-content" class="horario-step2-content">
@@ -386,13 +531,19 @@ function buildPanelShell() {
               <button type="button" class="btn btn-ghost" id="horario-toggle-multi">Multi</button>
             </div>
             <form id="horario-slot-form" class="horario-slot-form">
-              <div class="horario-form-grid">
-                <div class="form-group">
-                  <label for="horario-slot-day">Día</label>
-                  <select class="input" id="horario-slot-day" required>
-                    ${WEEKDAYS.map((d) => `<option value="${d}">${WEEKDAY_LABELS[d]}</option>`).join('')}
-                  </select>
+              <div class="form-group horario-day-field">
+                <span class="horario-teacher-label">Días</span>
+                <div class="horario-day-checks" id="horario-slot-days">
+                  ${WEEKDAYS.map((d) => `
+                    <label class="horario-day-check">
+                      <input type="checkbox" class="horario-day-checkbox" value="${d}" data-day="${d}">
+                      <span>${WEEKDAY_LABELS[d]}</span>
+                    </label>
+                  `).join('')}
                 </div>
+                <p class="horario-day-hint" id="horario-day-hint" hidden>Estás editando una franja existente: pertenece a un solo día.</p>
+              </div>
+              <div class="horario-form-grid">
                 <div class="form-group">
                   <label for="horario-slot-start">Inicio</label>
                   <input class="input" id="horario-slot-start" type="time" required>
@@ -401,6 +552,10 @@ function buildPanelShell() {
                   <label for="horario-slot-end">Fin</label>
                   <input class="input" id="horario-slot-end" type="time" required>
                 </div>
+              </div>
+              <div class="horario-time-presets-row">
+                <span class="horario-presets-label">Horarios comunes</span>
+                <div id="horario-time-presets" class="horario-time-presets"></div>
               </div>
 
               <div id="horario-single-fields">
@@ -460,6 +615,23 @@ function buildPanelShell() {
         </div>
       </div>
     </section>
+
+    <div id="horario-toast" class="horario-toast" role="status" aria-live="polite"></div>
+
+    <div id="horario-confirm-overlay" class="horario-confirm-overlay" hidden>
+      <div class="horario-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="horario-confirm-title">
+        <h4 class="horario-confirm-title" id="horario-confirm-title"></h4>
+        <p class="horario-confirm-text" id="horario-confirm-text"></p>
+        <label class="horario-confirm-ack" id="horario-confirm-ack-row" hidden>
+          <input type="checkbox" id="horario-confirm-ack">
+          <span id="horario-confirm-ack-label"></span>
+        </label>
+        <div class="horario-confirm-actions">
+          <button type="button" class="btn btn-ghost" id="horario-confirm-cancel">Cancelar</button>
+          <button type="button" class="btn btn-danger" id="horario-confirm-accept">Eliminar</button>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -556,7 +728,7 @@ function renderGradeEmptyHint() {
   if (!el) return;
 
   if (state.classes.length && !state.slots.length) {
-    el.textContent = `Aún no hay clases en el horario de ${state.grade}. Usa el formulario para colocar una.`;
+    el.textContent = `Aún no hay clases en el horario de ${state.grade}. Marca los días y la hora en el formulario, o haz clic en «+ Agregar clase» dentro de un día de la vista semanal.`;
     el.hidden = false;
   } else {
     el.hidden = true;
@@ -578,9 +750,10 @@ function renderWeeklyGrid() {
       : '<p class="horario-day-empty">Sin franjas</p>';
 
     return `
-      <div class="horario-day-col">
+      <div class="horario-day-col horario-day-col-clickable" data-day-col="${day}">
         <h4 class="horario-day-hd">${WEEKDAY_LABELS[day]}</h4>
         <div class="horario-day-slots">${cards}</div>
+        <button type="button" class="horario-day-add" data-add-day="${day}">+ Agregar clase</button>
       </div>
     `;
   }).join('');
@@ -661,6 +834,9 @@ function clearSlotForm() {
   state.formMulti = false;
   const form = document.getElementById('horario-slot-form');
   form?.reset();
+  setSelectedDays([]);
+  updateDayEditLock();
+  syncActiveTimePreset();
   document.getElementById('horario-form-title').textContent = 'Colocar en el horario';
   document.getElementById('horario-slot-cancel').hidden = true;
   setFormMulti(false);
@@ -669,11 +845,29 @@ function clearSlotForm() {
   updateFormChrome();
 }
 
+/** Click-to-add: prefill the placement form for a new slot on a given day. */
+function prefillDayForAdd(day) {
+  if (state.editingSlotId) clearSlotForm();
+  setSelectedDays([day]);
+  updateDayEditLock();
+
+  document.getElementById('horario-placement-block')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+  const focusTarget = state.formMulti
+    ? document.getElementById('horario-part-class-1')
+    : document.getElementById('horario-slot-class');
+  window.setTimeout(() => {
+    (focusTarget ?? document.getElementById('horario-slot-start'))?.focus();
+  }, 200);
+}
+
 function prefillSlotForm(slot, { focusTeacher = false } = {}) {
   state.editingSlotId = slot.id;
-  document.getElementById('horario-slot-day').value = slot.day;
+  setSelectedDays([slot.day]);
+  updateDayEditLock();
   document.getElementById('horario-slot-start').value = formatTime(slot.start_time);
   document.getElementById('horario-slot-end').value = formatTime(slot.end_time);
+  syncActiveTimePreset();
 
   if (slot.is_multi) {
     setFormMulti(true);
@@ -706,6 +900,7 @@ async function refreshAll() {
   renderStep2Gate();
   renderGradeEmptyHint();
   renderWeeklyGrid();
+  renderTimePresets();
   populateFormSelects();
   updateFormChrome();
 }
@@ -749,9 +944,40 @@ function wireEvents(panel) {
       state.slots = await fetchSlots(state.grade);
       renderGradeEmptyHint();
       renderWeeklyGrid();
+      renderTimePresets();
       updateFormChrome();
     } catch (err) {
       showAlert(err.message || 'No se pudo cargar el horario.');
+    }
+  });
+
+  panel.querySelector('#horario-slot-days')?.addEventListener('change', (e) => {
+    const cb = e.target.closest('.horario-day-checkbox');
+    if (!cb) return;
+    if (state.editingSlotId) {
+      // Editing stays single-day: behave like a radio group locked to one selection.
+      if (cb.checked) {
+        document.querySelectorAll('.horario-day-checkbox').forEach((other) => {
+          if (other !== cb) other.checked = false;
+        });
+      } else {
+        cb.checked = true;
+      }
+    }
+  });
+
+  panel.querySelector('#horario-time-presets')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.horario-time-preset');
+    if (!btn) return;
+    hideAlert();
+    document.getElementById('horario-slot-start').value = btn.dataset.start;
+    document.getElementById('horario-slot-end').value = btn.dataset.end;
+    syncActiveTimePreset();
+  });
+
+  panel.querySelector('#horario-slot-form')?.addEventListener('input', (e) => {
+    if (e.target.id === 'horario-slot-start' || e.target.id === 'horario-slot-end') {
+      syncActiveTimePreset();
     }
   });
 
@@ -759,9 +985,19 @@ function wireEvents(panel) {
     e.preventDefault();
     hideAlert();
 
-    const day = document.getElementById('horario-slot-day').value;
+    const selectedDays = getSelectedDays();
     const startTime = document.getElementById('horario-slot-start').value;
     const endTime = document.getElementById('horario-slot-end').value;
+
+    if (!selectedDays.length) {
+      showAlert('Marca al menos un día (Lun–Vie).');
+      return;
+    }
+
+    if (state.editingSlotId && selectedDays.length > 1) {
+      showAlert('Al editar una franja existente solo puedes elegir un día.');
+      return;
+    }
 
     if (timeToMinutes(endTime) <= timeToMinutes(startTime)) {
       showAlert('La hora de fin debe ser posterior a la de inicio.');
@@ -793,41 +1029,69 @@ function wireEvents(panel) {
       }
     }
 
-    const payload = {
+    /** Per-slot payload — same shape as always, one per day. */
+    const buildPayload = (day) => ({
       class_id: classId,
       grade: state.grade,
       day,
       start_time: startTime,
       end_time: endTime,
       is_multi: isMulti,
-    };
+    });
 
     try {
-      let slotId = state.editingSlotId;
+      const wasEditing = Boolean(state.editingSlotId);
 
-      if (slotId) {
+      if (wasEditing) {
+        const slotId = state.editingSlotId;
+        const payload = buildPayload(selectedDays[0]);
         const { error } = await supabase.from('timetable_slots').update(payload).eq('id', slotId);
         if (error) throw error;
+
+        if (isMulti) {
+          await syncSlotParts(slotId, multiParts);
+          await syncSlotTeachers(slotId, []);
+        } else {
+          await syncSlotParts(slotId, null);
+          await syncSlotTeachers(slotId, teacherIds);
+        }
       } else {
-        const { data: newSlot, error } = await supabase
-          .from('timetable_slots')
-          .insert(payload)
-          .select('id')
-          .single();
-        if (error) throw error;
-        slotId = newSlot.id;
+        // Multi-day placement: one INSERT per selected day, each with the
+        // exact same per-slot payload shape as a single add.
+        for (const day of selectedDays) {
+          const payload = buildPayload(day);
+          const { data: newSlot, error } = await supabase
+            .from('timetable_slots')
+            .insert(payload)
+            .select('id')
+            .single();
+          if (error) throw error;
+          const slotId = newSlot.id;
+
+          if (isMulti) {
+            await syncSlotParts(slotId, multiParts);
+            await syncSlotTeachers(slotId, []);
+          } else {
+            await syncSlotParts(slotId, null);
+            await syncSlotTeachers(slotId, teacherIds);
+          }
+        }
       }
 
-      if (isMulti) {
-        await syncSlotParts(slotId, multiParts);
-        await syncSlotTeachers(slotId, []);
-      } else {
-        await syncSlotParts(slotId, null);
-        await syncSlotTeachers(slotId, teacherIds);
-      }
+      const classLabel = isMulti
+        ? multiParts.map((p) => classNameById(p.class_id)).join(' + ')
+        : classNameById(classId);
+      const daysLabel = selectedDays.map((d) => WEEKDAY_LABELS[d]).join(', ');
+      const gradeLabel = state.grade;
 
       clearSlotForm();
       await refreshAll();
+
+      showToast(
+        wasEditing
+          ? `Franja actualizada: <strong>${escapeHtml(classLabel)}</strong> · ${daysLabel} · ${startTime}–${endTime} · ${escapeHtml(gradeLabel)}`
+          : `<strong>${escapeHtml(classLabel)}</strong> agregada · ${daysLabel} · ${startTime}–${endTime} · ${escapeHtml(gradeLabel)}`
+      );
     } catch (err) {
       showAlert(err.message || 'No se pudo guardar la franja.');
     }
@@ -845,9 +1109,25 @@ function wireEvents(panel) {
 
     const classId = btn.dataset.deleteClass;
     const className = classNameById(classId);
-    if (!confirm(`¿Eliminar la materia «${className}»? También se eliminarán sus franjas del horario.`)) {
-      return;
+    const slotCount = slotCountForClass(classId);
+
+    let confirmed;
+    if (slotCount > 0) {
+      const franjas = slotCount === 1 ? '1 franja' : `${slotCount} franjas`;
+      confirmed = await openConfirmDialog({
+        title: `Eliminar «${className}»`,
+        text: `Esta materia tiene <strong>${franjas}</strong> en el horario. Al eliminarla, también se eliminarán esas franjas y dejarán de verse para alumnas y maestras.`,
+        ackLabel: `Entiendo que se eliminarán ${franjas} del horario.`,
+        acceptLabel: `Eliminar materia y ${franjas}`,
+      });
+    } else {
+      confirmed = await openConfirmDialog({
+        title: `Eliminar «${className}»`,
+        text: 'Esta materia no tiene franjas en el horario. ¿Quieres eliminarla?',
+        acceptLabel: 'Eliminar materia',
+      });
     }
+    if (!confirmed) return;
 
     try {
       const { error } = await supabase.from('classes').delete().eq('id', classId);
@@ -868,6 +1148,13 @@ function wireEvents(panel) {
     const assignBtn = e.target.closest('[data-assign-teacher]');
     const editBtn = e.target.closest('[data-edit-slot]');
     const deleteBtn = e.target.closest('[data-delete-slot]');
+    const addDayBtn = e.target.closest('[data-add-day]');
+
+    if (addDayBtn) {
+      hideAlert();
+      prefillDayForAdd(addDayBtn.dataset.addDay);
+      return;
+    }
 
     if (assignBtn) {
       hideAlert();
@@ -896,6 +1183,15 @@ function wireEvents(panel) {
       } catch (err) {
         showAlert(err.message || 'No se pudo eliminar la franja.');
       }
+      return;
+    }
+
+    // Click-to-add: clicking an empty area of a day column prefills the form
+    // with that day and focuses it.
+    const dayCol = e.target.closest('[data-day-col]');
+    if (dayCol && !e.target.closest('.horario-slot-card')) {
+      hideAlert();
+      prefillDayForAdd(dayCol.dataset.dayCol);
     }
   });
 }
