@@ -3173,3 +3173,222 @@ button:active { transform: scale(.975); }
   background: #fff;
   color: var(--navy);
 }
+
+/* ---------- admin delete user (additive) ---------- */
+
+.usuarios-delete-btn {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: #fff;
+  background: var(--redwood-deep);
+  cursor: pointer;
+  transition: background .14s, transform .14s, box-shadow .14s;
+}
+
+.usuarios-delete-btn:hover:not(:disabled) {
+  background: var(--navy);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(149, 0, 28, .22);
+}
+
+.usuarios-delete-btn:active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+}
+
+.usuarios-delete-btn:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+/* ---------- study timeline (additive) ---------- */
+
+.study-tl {
+  margin: 2px 0 6px;
+}
+
+.study-tl-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+}
+
+.study-tl-inner {
+  min-width: 748px; /* 22 segments x ~34px so touch targets stay usable */
+  padding-top: 30px; /* room for the CSS tooltip above the track */
+}
+
+.study-tl-track {
+  position: relative;
+  display: flex;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.study-tl-seg {
+  flex: 1 1 0;
+  min-width: 32px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: var(--paper);
+  font: inherit;
+}
+
+.study-tl-seg:last-child {
+  border-right: 0;
+}
+
+.study-tl-seg--free {
+  cursor: pointer;
+  transition: background .12s;
+}
+
+.study-tl-seg--free:hover {
+  background: var(--mist);
+}
+
+.study-tl-seg--free:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+
+.study-tl-seg--busy {
+  background: var(--mist);
+}
+
+.study-tl-block {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 6px;
+  min-width: 6px;
+  cursor: default;
+}
+
+/* pending: soft striped fill using the pending-badge tokens (--brand-soft / --chip / --bd) */
+.study-tl-block--pending {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--brand-soft) 0 6px,
+    var(--chip) 6px 12px
+  );
+  border: 1px solid var(--bd);
+}
+
+/* approved: solid fill using the approved-badge accent token (--brand) */
+.study-tl-block--approved {
+  background: var(--brand);
+  border: 1px solid var(--brand);
+}
+
+/* current user's own booking: subtle ring (paper gap + navy line) visible on both fills */
+.study-tl-block--own {
+  box-shadow: 0 0 0 1.5px var(--paper), 0 0 0 3px var(--navy);
+}
+
+/* small CSS tooltip (also mirrored in title/aria-label); shows on hover and on tap via focus */
+.study-tl-block::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ink);
+  color: var(--white);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s;
+  z-index: 6;
+}
+
+.study-tl-block:hover::after,
+.study-tl-block:focus::after,
+.study-tl-block:focus-visible::after {
+  opacity: 1;
+}
+
+.study-tl-block:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.study-tl-hours {
+  position: relative;
+  height: 15px;
+  margin-top: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--faint);
+}
+
+.study-tl-hour {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+}
+
+.study-tl-hour--start {
+  transform: translateX(0);
+}
+
+.study-tl-hour--end {
+  transform: translateX(-100%);
+}
+
+.study-tl-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.study-tl-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.study-tl-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.study-tl-swatch--pending {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--brand-soft) 0 3px,
+    var(--chip) 3px 6px
+  );
+  border-color: var(--bd);
+}
+
+.study-tl-swatch--approved {
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.study-tl-swatch--own {
+  box-shadow: 0 0 0 1px var(--paper), 0 0 0 2px var(--navy);
+}

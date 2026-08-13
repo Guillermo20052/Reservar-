@@ -117,7 +117,8 @@ BEGIN
     RETURN;
   END IF;
 
-  DELETE FROM public.reservations
+  UPDATE public.reservations
+  SET confirmed = true
   WHERE session_id = p_session_id
     AND teacher_id = v_active.teacher_id
     AND confirmed = false;

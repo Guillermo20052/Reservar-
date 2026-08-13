@@ -97,6 +97,7 @@ function renderUserList() {
           <select class="input usuarios-role-select" id="usuarios-role-${user.id}" data-user-id="${user.id}" data-current-role="${user.role}"${isSelf ? ' title="No puedes quitarte el rol de administradora desde aquí"' : ''}>
             ${renderRoleOptions(user)}
           </select>
+          ${isSelf ? '' : `<button type="button" class="usuarios-delete-btn" data-user-id="${user.id}"${user.role === 'admin' ? ' disabled title="No se puede eliminar a otra administradora"' : ''}>Eliminar</button>`}
         </div>
       </article>
     `;
@@ -152,11 +153,49 @@ async function handleRoleChange(select) {
   select.disabled = false;
 }
 
+async function handleDeleteUser(button) {
+  const userId = button.dataset.userId;
+
+  // Belt-and-suspenders: never delete your own account from the UI.
+  if (userId === state.profile.id) return;
+
+  hideAlert();
+
+  const user = state.users.find((u) => u.id === userId);
+  const displayName = user?.full_name?.trim() || 'Sin nombre';
+
+  // The email is not available from the app (only in auth), so the dialog
+  // identifies the account by name + id suffix, matching what the row shows.
+  const ok = confirm(
+    `¿Eliminar la cuenta de «${displayName}» (…${idSuffix(userId)})?\n\n` +
+    'Se borrará su cuenta y sus datos asociados (reservas, turnos y solicitudes). ' +
+    'La persona podrá registrarse de nuevo si lo necesita.'
+  );
+  if (!ok) return;
+
+  button.disabled = true;
+
+  try {
+    const { error } = await supabase.rpc('admin_delete_user', { p_user_id: userId });
+    if (error) throw error;
+    await refreshAll();
+  } catch (err) {
+    button.disabled = false;
+    showAlert(err.message || 'No se pudo eliminar la cuenta.');
+  }
+}
+
 function wireEvents(panel) {
   panel.addEventListener('change', (e) => {
     const select = e.target.closest('.usuarios-role-select');
     if (!select) return;
     handleRoleChange(select);
+  });
+
+  panel.addEventListener('click', (e) => {
+    const button = e.target.closest('.usuarios-delete-btn');
+    if (!button || button.disabled) return;
+    handleDeleteUser(button);
   });
 }
 
