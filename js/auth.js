@@ -9,13 +9,16 @@ export async function signUp(email, password, fullName) {
     },
   });
   if (error) throw error;
+  if (data?.session) {
+    window.location.href = await resolvePostLoginTarget();
+  }
   return data;
 }
 
 export async function signIn(email, password) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
-  window.location.href = 'reservar.html';
+  window.location.href = await resolvePostLoginTarget();
   return data;
 }
 
@@ -45,6 +48,18 @@ export async function getProfile() {
   return data;
 }
 
+// Resolves where a logged-in user should land, based on their profile role.
+// Students get their own screen; teachers/admins (or missing/failed profile)
+// go to reservar.html, whose own guard handles the no-profile case.
+export async function resolvePostLoginTarget() {
+  try {
+    const profile = await getProfile();
+    return profile?.role === 'student' ? 'student.html' : 'reservar.html';
+  } catch {
+    return 'reservar.html';
+  }
+}
+
 export async function requireAuth(redirectTo = 'login.html') {
   const user = await getSessionUser();
   if (!user) {
@@ -54,10 +69,10 @@ export async function requireAuth(redirectTo = 'login.html') {
   return user;
 }
 
-export async function redirectIfLoggedIn(redirectTo = 'reservar.html') {
+export async function redirectIfLoggedIn(redirectTo = null) {
   const user = await getSessionUser();
   if (user) {
-    window.location.href = redirectTo;
+    window.location.href = redirectTo || (await resolvePostLoginTarget());
   }
 }
 

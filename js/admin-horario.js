@@ -3,6 +3,16 @@ import { supabase } from './supabase.js';
 const GRADES = ['10mo', '11vo', '12vo'];
 const WEEKDAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
 
+// Multi (IB) slots: up to 5 classes per time slot, at least 2 required.
+const MAX_MULTI_PARTS = 5;
+const MIN_MULTI_PARTS = 2;
+const MULTI_PART_INDEXES = Array.from({ length: MAX_MULTI_PARTS }, (_, i) => i + 1);
+const MULTI_PART_LETTERS = ['A', 'B', 'C', 'D', 'E'];
+
+function partLetter(partIndex) {
+  return MULTI_PART_LETTERS[partIndex - 1] ?? String(partIndex);
+}
+
 const WEEKDAY_LABELS = {
   lunes: 'Lunes',
   martes: 'Martes',
@@ -414,7 +424,7 @@ function getPartTeacherIds(partIndex) {
 }
 
 function getMultiFormParts() {
-  return [1, 2].map((partIndex) => ({
+  return MULTI_PART_INDEXES.map((partIndex) => ({
     part_index: partIndex,
     class_id: document.getElementById(`horario-part-class-${partIndex}`)?.value ?? '',
     teacher_ids: getPartTeacherIds(partIndex),
@@ -463,11 +473,16 @@ function renderPartTeacherCheckboxes(partIndex, selectedIds = []) {
 }
 
 function renderMultiPartSelects(parts = []) {
-  for (const partIndex of [1, 2]) {
+  for (const partIndex of MULTI_PART_INDEXES) {
     const select = document.getElementById(`horario-part-class-${partIndex}`);
     const existing = parts.find((p) => p.part_index === partIndex);
     if (select) {
-      select.innerHTML = classOptionsHtml(existing?.class_id ?? '');
+      // Parts beyond the required minimum are optional and may be left empty.
+      const emptyOption =
+        partIndex > MIN_MULTI_PARTS
+          ? `<option value=""${existing?.class_id ? '' : ' selected'}>— Sin materia (opcional) —</option>`
+          : '';
+      select.innerHTML = emptyOption + classOptionsHtml(existing?.class_id ?? '');
     }
     renderPartTeacherCheckboxes(partIndex, existing?.teacher_ids ?? []);
   }
@@ -502,7 +517,7 @@ function buildPanelShell() {
 
     <section class="horario-section horario-step">
       <h3 class="horario-step-title"><span class="horario-step-num">2</span> Horario por grado</h3>
-      <p class="horario-step-lede">Elige un grado, coloca cada materia en sus días y hora, y asigna maestras. Usa <strong>Multi</strong> para franjas IB divididas (ej. Business + History, dos espacios).</p>
+      <p class="horario-step-lede">Elige un grado, coloca cada materia en sus días y hora, y asigna maestras. Usa <strong>Multi</strong> para franjas IB divididas (ej. Business + History): hasta 5 clases, cada una con su propio espacio.</p>
 
       <div id="horario-step2-gate" class="horario-step-gate" hidden>
         <p class="horario-gate-title">Aún no hay materias — así se arma el horario:</p>
@@ -572,30 +587,21 @@ function buildPanelShell() {
               </div>
 
               <div id="horario-multi-fields" class="horario-multi-fields" hidden>
-                <p class="horario-multi-hint">Mitad de la generación a cada materia — cada una reserva su propio espacio.</p>
+                <p class="horario-multi-hint">Divide la franja entre hasta 5 clases — cada una reserva su propio espacio. Las partes A y B son obligatorias; C, D y E son opcionales.</p>
                 <div class="horario-multi-parts">
+                  ${MULTI_PART_INDEXES.map((partIndex) => `
                   <fieldset class="horario-multi-part">
-                    <legend>Parte A</legend>
+                    <legend>Parte ${partLetter(partIndex)}${partIndex > MIN_MULTI_PARTS ? ' (opcional)' : ''}</legend>
                     <div class="form-group">
-                      <label for="horario-part-class-1">Materia</label>
-                      <select class="input" id="horario-part-class-1"></select>
+                      <label for="horario-part-class-${partIndex}">Materia</label>
+                      <select class="input" id="horario-part-class-${partIndex}"></select>
                     </div>
                     <div class="form-group">
                       <span class="horario-teacher-label">Maestras</span>
-                      <div id="horario-part-teachers-1" class="horario-teacher-list"></div>
+                      <div id="horario-part-teachers-${partIndex}" class="horario-teacher-list"></div>
                     </div>
                   </fieldset>
-                  <fieldset class="horario-multi-part">
-                    <legend>Parte B</legend>
-                    <div class="form-group">
-                      <label for="horario-part-class-2">Materia</label>
-                      <select class="input" id="horario-part-class-2"></select>
-                    </div>
-                    <div class="form-group">
-                      <span class="horario-teacher-label">Maestras</span>
-                      <div id="horario-part-teachers-2" class="horario-teacher-list"></div>
-                    </div>
-                  </fieldset>
+                  `).join('')}
                 </div>
               </div>
 
@@ -1010,15 +1016,28 @@ function wireEvents(panel) {
     let multiParts = [];
 
     if (isMulti) {
-      multiParts = getMultiFormParts();
-      if (!multiParts[0].class_id || !multiParts[1].class_id) {
-        showAlert('Elige una materia para cada parte (A y B).');
+      const formParts = getMultiFormParts();
+      if (!formParts[0].class_id || !formParts[1].class_id) {
+        showAlert('Elige una materia para cada parte obligatoria (A y B).');
         return;
       }
-      if (multiParts[0].class_id === multiParts[1].class_id) {
-        showAlert('Las dos partes deben ser materias distintas.');
+      const filledParts = formParts.filter((p) => p.class_id);
+      if (filledParts.length < MIN_MULTI_PARTS) {
+        showAlert(`Una franja multi necesita al menos ${MIN_MULTI_PARTS} materias.`);
         return;
       }
+      if (filledParts.length > MAX_MULTI_PARTS) {
+        showAlert(`Una franja multi admite hasta ${MAX_MULTI_PARTS} clases.`);
+        return;
+      }
+      const uniqueClassIds = new Set(filledParts.map((p) => p.class_id));
+      if (uniqueClassIds.size !== filledParts.length) {
+        showAlert('Cada parte debe ser una materia distinta.');
+        return;
+      }
+      // Re-number filled parts contiguously (1..n) so gaps left by empty
+      // optional fieldsets never reach the database.
+      multiParts = filledParts.map((part, i) => ({ ...part, part_index: i + 1 }));
       classId = multiParts[0].class_id;
     } else {
       classId = document.getElementById('horario-slot-class').value;

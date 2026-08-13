@@ -11,6 +11,64 @@ const WEEKDAY_LABELS = {
   viernes: 'Viernes',
 };
 
+const MONTH_NAMES_ES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+/**
+ * Current calendar date (wall clock) in America/Monterrey, computed
+ * client-side via Intl. Monterrey is UTC-6 year-round (no DST since 2022),
+ * but Intl handles that for us regardless.
+ */
+function getMonterreyToday() {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Monterrey',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+  const [y, m, d] = parts.split('-').map(Number);
+  return { y, m, d };
+}
+
+/**
+ * Pure display helper: the Mon–Fri dates of the week shown in the grid.
+ * Mon–Fri → the current week; Sat/Sun → the upcoming school week.
+ * All arithmetic is done on UTC-anchored dates so the host machine's
+ * timezone/DST can never shift the calendar day.
+ * Returns { days: Date[5], todayIndex: 0–4 or -1 (weekend → none) }.
+ */
+function computeWeekInfo() {
+  const { y, m, d } = getMonterreyToday();
+  const today = new Date(Date.UTC(y, m - 1, d));
+  const dow = today.getUTCDay(); // 0 = Sunday … 6 = Saturday
+  let offsetToMonday;
+  if (dow === 0) offsetToMonday = 1;      // Sunday → tomorrow's Monday
+  else if (dow === 6) offsetToMonday = 2; // Saturday → upcoming Monday
+  else offsetToMonday = 1 - dow;          // Mon–Fri → this week's Monday
+  const days = [];
+  for (let i = 0; i < 5; i++) {
+    days.push(new Date(Date.UTC(y, m - 1, d + offsetToMonday + i)));
+  }
+  const todayIndex = dow >= 1 && dow <= 5 ? dow - 1 : -1;
+  return { days, todayIndex };
+}
+
+function formatWeekRange(days) {
+  const start = days[0];
+  const end = days[4];
+  const sd = start.getUTCDate();
+  const ed = end.getUTCDate();
+  const sm = MONTH_NAMES_ES[start.getUTCMonth()];
+  const em = MONTH_NAMES_ES[end.getUTCMonth()];
+  const sy = start.getUTCFullYear();
+  const ey = end.getUTCFullYear();
+  if (sy === ey && sm === em) return `Semana del ${sd} al ${ed} de ${sm}`;
+  if (sy === ey) return `Semana del ${sd} de ${sm} al ${ed} de ${em}`;
+  return `Semana del ${sd} de ${sm} de ${sy} al ${ed} de ${em} de ${ey}`;
+}
+
 /** @type {{
  *   grade: string,
  *   slots: object[],
@@ -223,6 +281,7 @@ function buildPanelShell() {
       </select>
     </section>
     <section class="horario-view-section">
+      <p id="horario-view-week-label" class="horario-week-label"></p>
       <div id="horario-view-grid" class="horario-grid"></div>
     </section>
   `;
@@ -245,7 +304,12 @@ function renderGrid() {
   const grid = document.getElementById('horario-view-grid');
   if (!grid) return;
 
-  grid.innerHTML = WEEKDAYS.map((day) => {
+  // Recomputed on every render — pure client-side display, no DB/config.
+  const week = computeWeekInfo();
+  const weekLabel = document.getElementById('horario-view-week-label');
+  if (weekLabel) weekLabel.textContent = formatWeekRange(week.days);
+
+  grid.innerHTML = WEEKDAYS.map((day, dayIndex) => {
     const daySlots = state.slots
       .filter((s) => s.day === day)
       .sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
@@ -312,9 +376,13 @@ function renderGrid() {
         }).join('')
       : '<p class="horario-day-empty">Sin franjas</p>';
 
+    const isToday = dayIndex === week.todayIndex;
+    const dayNum = week.days[dayIndex].getUTCDate();
+    const todayChip = isToday ? '<span class="horario-today-chip">Hoy</span>' : '';
+
     return `
-      <div class="horario-day-col">
-        <h4 class="horario-day-hd">${WEEKDAY_LABELS[day]}</h4>
+      <div class="horario-day-col${isToday ? ' horario-day-col--today' : ''}">
+        <h4 class="horario-day-hd">${WEEKDAY_LABELS[day]} ${dayNum}${todayChip}</h4>
         <div class="horario-day-slots">${cards}</div>
       </div>
     `;
