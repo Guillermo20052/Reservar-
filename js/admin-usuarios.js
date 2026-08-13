@@ -143,6 +143,8 @@ async function handleRoleChange(select) {
     });
     if (error) throw error;
     await refreshAll();
+    // Role changes add/remove teachers — refresh other modules' pickers too.
+    document.dispatchEvent(new CustomEvent('rw:profiles-changed'));
   } catch (err) {
     select.value = oldRole;
     select.disabled = false;
@@ -179,6 +181,8 @@ async function handleDeleteUser(button) {
     const { error } = await supabase.rpc('admin_delete_user', { p_user_id: userId });
     if (error) throw error;
     await refreshAll();
+    // Tell other mounted admin modules (Editar horario pickers) to refetch.
+    document.dispatchEvent(new CustomEvent('rw:profiles-changed'));
   } catch (err) {
     button.disabled = false;
     showAlert(err.message || 'No se pudo eliminar la cuenta.');

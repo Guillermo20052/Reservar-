@@ -897,6 +897,22 @@ function prefillSlotForm(slot, { focusTeacher = false } = {}) {
   }
 }
 
+// Teachers can appear/vanish while this tab sits mounted (e.g. an admin
+// deletes a user in Usuarios). Refetch and re-render the pickers, preserving
+// whatever the admin currently has checked.
+async function refreshTeachers() {
+  try {
+    state.teachers = await fetchTeachers();
+  } catch (_) {
+    return; // keep the current list if the refetch fails
+  }
+  renderTeacherCheckboxes(getSelectedTeacherIds());
+  for (const partIndex of MULTI_PART_INDEXES) {
+    renderPartTeacherCheckboxes(partIndex, getPartTeacherIds(partIndex));
+  }
+  renderWeeklyGrid();
+}
+
 async function refreshAll() {
   state.classes = await fetchClasses();
   state.teachers = await fetchTeachers();
@@ -1240,6 +1256,14 @@ export async function mountEditarHorario(profile) {
   document.getElementById('horario-grade').value = state.grade;
 
   wireEvents(panel);
+
+  // Keep the teacher pickers fresh: refetch whenever this tab is activated and
+  // whenever another admin module announces a profiles change (user deleted or
+  // role changed). Mount runs once per page load, so no duplicate listeners.
+  document
+    .querySelector('#reserva-tabs [data-tab="editar-horario"]')
+    ?.addEventListener('click', () => { refreshTeachers(); });
+  document.addEventListener('rw:profiles-changed', () => { refreshTeachers(); });
 
   try {
     await refreshAll();
