@@ -438,7 +438,7 @@ function renderItemRow(item, ui) {
   const className = item.class_name;
   const dayLabel = WEEKDAY_LABELS[item.day] || item.day;
   const timeRange = `${formatTime(item.start_time)} – ${formatTime(item.end_time)}`;
-  const partLabel = item.is_multi ? `<span class="reservar-part-badge">Parte ${item.part_index === 1 ? 'A' : 'B'}</span>` : '';
+  const partLabel = item.is_multi ? `<span class="reservar-part-badge">Parte ${'ABCDE'[item.part_index - 1] ?? item.part_index}</span>` : '';
 
   let pickDisplay = '';
   if (picks.length) {
