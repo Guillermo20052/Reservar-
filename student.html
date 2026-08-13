@@ -14,8 +14,8 @@
 body{margin:0;background:var(--paper);font-family:var(--sans);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased;
 background-image:radial-gradient(circle at 100% 0%,var(--mist) 0%,transparent 38%),radial-gradient(circle at 0% 80%,var(--redwood-soft) 0%,transparent 36%)}
 a{color:inherit}
-.wrap{max-width:1000px;margin:0 auto;padding:0 18px 70px}
-section{scroll-margin-top:70px}
+.wrap{max-width:1080px;margin:0;padding:0 0 70px}
+section{scroll-margin-top:20px}
 .hero{padding:54px 0 36px;text-align:center}
 .kick{font-size:12.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
 .hero h1{font-family:var(--serif);font-weight:600;font-size:clamp(34px,6.5vw,58px);line-height:1.04;margin:10px auto 14px;max-width:16ch}
@@ -136,30 +136,66 @@ footer{text-align:center;color:var(--faint);font-size:12.5px;margin-top:46px;pad
 .voice{background:#fff;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px;padding:16px 18px}
 .voice p{margin:0 0 8px;font-family:var(--serif);font-style:italic;font-size:15px}
 .voice span{font-size:12.5px;color:var(--muted);font-weight:600}
+/* ---------- guide-style sidebar shell (mirrors index.html's skeleton) ---------- */
+#app{display:flex;min-height:100vh}
+#sidebar{width:286px;flex:0 0 286px;position:fixed;top:0;left:0;height:100vh;
+  background:rgba(255,251,250,.92);backdrop-filter:blur(8px);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;z-index:40}
+#main{margin-left:286px;flex:1;min-width:0;padding:0 clamp(20px,4vw,64px) 96px}
+.sb-head{padding:22px 22px 14px}
+.sb-logo{width:100%;max-width:188px;display:block;margin-bottom:4px}
+.sb-tag{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);font-weight:700}
+.sb-user{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;font-weight:700;color:var(--ink);flex-wrap:wrap}
+.sb-search{position:relative;padding:0 16px 8px}
+.sb-search input{width:100%;padding:10px 12px 10px 34px;border:1px solid var(--line);border-radius:10px;
+  background:#fff;font-size:13.5px;color:var(--ink);outline:none;transition:.18s;font-family:var(--sans)}
+.sb-search input:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.sb-search svg{position:absolute;left:26px;top:11px;width:15px;height:15px;color:var(--faint)}
+.btn-reserva{display:block;margin:0 12px 12px;padding:11px 14px;background:var(--brand);color:#fff;border-radius:var(--radius);
+  font-size:13.5px;font-weight:800;text-align:center;text-decoration:none;border:0;cursor:pointer;
+  font-family:var(--sans);transition:filter .14s,box-shadow .14s}
+button.btn-reserva{width:calc(100% - 24px)}
+.btn-reserva:hover{filter:brightness(1.05);box-shadow:var(--shadow)}
+.btn-salir{background:#fff;color:var(--navy);border:1.5px solid var(--navy)}
+.btn-salir:hover{background:var(--navy);color:#fff;filter:none;box-shadow:var(--shadow)}
+.sb-nav{flex:1;overflow-y:auto;padding:4px 12px 20px}
+.sb-nav::-webkit-scrollbar{width:8px}.sb-nav::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px}
+.nav-link{display:flex;align-items:center;gap:9px;width:100%;text-align:left;border:0;background:none;
+  padding:8px 10px;border-radius:9px;color:var(--muted);font-size:13.5px;font-weight:600;transition:.14s;
+  cursor:pointer;font-family:var(--sans)}
+.nav-link:hover{background:var(--paper2);color:var(--ink)}
+.nav-link.active{background:var(--brand);color:#fff}
+.nav-link svg{width:16px;height:16px;flex:0 0 auto;opacity:.85}
+.nav-link[hidden]{display:none}
+#hamb{display:none}
+@media(max-width:900px){
+  #sidebar{transform:translateX(-100%);transition:transform .3s;width:280px}
+  #sidebar.open{transform:none}
+  #main{margin-left:0;padding-top:56px}
+  #hamb{display:flex;position:fixed;top:12px;left:12px;z-index:60;width:44px;height:44px;border-radius:11px;
+    border:1px solid var(--line);background:#fff;align-items:center;justify-content:center;box-shadow:var(--shadow);cursor:pointer}
+}
+@media print{#sidebar,#hamb{display:none}#main{margin:0}}
 </style></head><body>
-<header class="reserva-header">
-  <div class="reserva-header-band">
-    <div class="reserva-header-start">
-      <a class="link-brand reserva-back" href="/">← Volver a la guía</a>
-      <div class="reserva-brand-row">
-        <img id="brandLogo" class="sb-logo reserva-logo" alt="Redwood High">
-        <div class="reserva-user">
-          <span id="user-name" class="reserva-user-name"></span>
-          <span class="reserva-role badge badge--role badge--role-student">Alumna</span>
-        </div>
-      </div>
+<button id="hamb" aria-label="Menú">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+</button>
+<div id="app">
+  <aside id="sidebar">
+    <div class="sb-head">
+      <img class="sb-logo" id="brandLogo" alt="Redwood High">
+      <div class="sb-tag">Tus espacios de aprendizaje</div>
+      <div class="sb-user"><span id="user-name"></span><span class="badge badge--role badge--role-student">Alumna</span></div>
     </div>
-    <div class="reserva-header-actions">
-      <button type="button" class="btn btn-ghost reserva-logout" id="logout-btn">Cerrar sesión</button>
+    <div class="sb-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="search" type="text" placeholder="Buscar sección…" autocomplete="off">
     </div>
-  </div>
-</header>
-<nav class="student-subnav" aria-label="Secciones de la guía">
-  <div class="student-subnav-in">
-    <a href="#inicio">Inicio</a><a href="#elementos">Las sociedades</a><a href="#necesitas">¿Qué necesitas?</a><a href="#evidencia">La ciencia</a><a href="#plano">Plano</a><a href="#espacios">Los espacios</a><a href="#maestras">Tus maestras</a><a href="#bienestar">Tu bienestar</a>
-  </div>
-</nav>
-
+    <a class="btn-reserva" href="/">← Volver a la guía</a>
+    <button type="button" class="btn-reserva btn-salir" id="logout-btn">Cerrar sesión</button>
+    <nav class="sb-nav" id="nav"></nav>
+  </aside>
+  <main id="main">
 <div class="wrap">
   <section id="inicio" class="hero">
     <div class="kick">Redwood High · Tus espacios de aprendizaje</div>
@@ -254,6 +290,8 @@ footer{text-align:center;color:var(--faint);font-size:12.5px;margin-top:46px;pad
   </section>
 
   <footer>Hecho para las alumnas de Redwood High · Guía de Espacios de Aprendizaje · EDI</footer>
+</div>
+  </main>
 </div>
 
 <div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
@@ -368,7 +406,55 @@ function buildHotspots(){
     return `<button class="hot" style="left:${h.x}%;top:${h.y}%;--hc:${elColor(s.el)}" title="${h.clean}" aria-label="Abrir ${h.clean}" onclick="openFicha('${h.clean.replace(/'/g,"\\'")}')"></button>`;
   }).join("");
 }
+/* sidebar nav (guide-style): build links, scroll-spy active state, search filter */
+const NAV_SECTIONS=[
+  ["inicio","Inicio","M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5"],
+  ["elementos","Las sociedades","M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8m12 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"],
+  ["necesitas","¿Qué necesitas?","M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3m.08 4h.01"],
+  ["evidencia","La ciencia","M10 2v7L4.5 19a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 9V2M8.5 2h7"],
+  ["plano","Plano","M9 20l-6-3V4l6 3m0 13 6-3m-6 3V7m6 10 6 3V7l-6-3m0 13V4M9 7l6-3"],
+  ["espacios","Los espacios","M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"],
+  ["maestras","Tus maestras","M22 10 12 5 2 10l10 5 10-5zM6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"],
+  ["bienestar","Tu bienestar","M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"],
+];
+function buildSideNav(){
+  $("nav").innerHTML=NAV_SECTIONS.map(([id,label,path])=>`<button class="nav-link" data-go="${id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${path}"/></svg>${label}</button>`).join("");
+  $("nav").addEventListener("click",e=>{
+    const b=e.target.closest(".nav-link");if(!b)return;
+    document.getElementById(b.dataset.go)?.scrollIntoView({behavior:"smooth",block:"start"});
+    document.getElementById("sidebar").classList.remove("open");
+  });
+}
+function scrollSpySide(){
+  const links=[...document.querySelectorAll(".nav-link[data-go]")];
+  const ids=NAV_SECTIONS.map(([id])=>id);
+  function update(){
+    let active=ids[0];
+    for(const id of ids){
+      const el=document.getElementById(id);
+      if(el&&el.getBoundingClientRect().top<=140)active=id;
+    }
+    links.forEach(l=>l.classList.toggle("active",l.dataset.go===active));
+  }
+  document.addEventListener("scroll",update,{passive:true});
+  update();
+}
+function wireSideSearch(){
+  const input=$("search");
+  input.addEventListener("input",()=>{
+    const q=input.value.trim().toLowerCase();
+    document.querySelectorAll(".nav-link[data-go]").forEach(l=>{l.hidden=!!q&&!l.textContent.toLowerCase().includes(q);});
+  });
+  input.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){
+      const first=document.querySelector(".nav-link[data-go]:not([hidden])");
+      if(first)first.click();
+    }
+  });
+}
+document.getElementById("hamb").onclick=()=>document.getElementById("sidebar").classList.toggle("open");
 buildNeeds();buildElements();buildSpaces();buildWell();buildHotspots();
+buildSideNav();scrollSpySide();wireSideSearch();
 </script>
 <script type="module">
 import { requireAuth, getProfile, signOut } from './js/auth.js';

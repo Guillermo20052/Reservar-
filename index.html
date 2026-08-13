@@ -808,8 +808,16 @@ try {
   const { supabase } = await import('./js/supabase.js');
   const { data, error } = await supabase.auth.getSession();
   if (!error && data?.session) {
-    document.getElementById('btn-reserva-app').hidden = false;
+    const reservaBtn = document.getElementById('btn-reserva-app');
+    reservaBtn.hidden = false;
     document.getElementById('btn-login-link').hidden = true;
+    // Students get their own landing page; on any failure the default
+    // reservar.html stays (its role bounce routes students anyway).
+    try {
+      const { getProfile } = await import('./js/auth.js');
+      const profile = await getProfile();
+      if (profile?.role === 'student') reservaBtn.href = 'student.html';
+    } catch (_) { /* keep reservar.html */ }
   }
 } catch (_) { /* stay logged-out */ }
 </script>
