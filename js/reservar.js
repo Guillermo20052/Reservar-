@@ -65,7 +65,7 @@ async function init() {
 
   const profile = await getProfile();
   if (!profile) {
-    window.location.href = 'index.html';
+    window.location.href = 'login.html';
     return;
   }
 

@@ -213,7 +213,7 @@ function buildPanelShell() {
     <div id="horario-view-alert" class="alert alert-error" hidden></div>
     <div id="horario-view-draft-banner" class="horario-view-draft-banner" hidden></div>
     <section class="horario-view-plano-link">
-      <a class="btn btn-ghost horario-view-plano-btn" href="home.html#plano">Ver plano interactivo</a>
+      <a class="btn btn-ghost horario-view-plano-btn" href="/#plano">Ver plano interactivo</a>
       <p class="horario-view-plano-note">Consulta el mapa de espacios en la guía pedagógica.</p>
     </section>
     <section class="horario-view-section">

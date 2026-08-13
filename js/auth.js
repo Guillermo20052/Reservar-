@@ -22,7 +22,7 @@ export async function signIn(email, password) {
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
-  window.location.href = 'home.html';
+  window.location.href = '/';
 }
 
 export async function getSessionUser() {
@@ -45,7 +45,7 @@ export async function getProfile() {
   return data;
 }
 
-export async function requireAuth(redirectTo = 'index.html') {
+export async function requireAuth(redirectTo = 'login.html') {
   const user = await getSessionUser();
   if (!user) {
     window.location.href = redirectTo;
