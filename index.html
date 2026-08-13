@@ -281,6 +281,7 @@ table.mtx tbody tr.hl{background:var(--brand-soft)}
 .btn-normativa:hover{background:#6E0013;filter:none;box-shadow:var(--shadow)}
 .btn-login{background:#fff;color:#95001C;border:1.5px solid #95001C}
 .btn-login:hover{background:#95001C;color:#fff;filter:none;box-shadow:var(--shadow)}
+.btn-reserva[hidden]{display:none}
 </style>
 </head>
 <body>
@@ -297,9 +298,9 @@ table.mtx tbody tr.hl{background:var(--brand-soft)}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       <input id="search" type="text" placeholder="Buscar espacio, modalidad, materia…" autocomplete="off">
     </div>
-    <a class="btn-reserva" href="reservar.html">Reserva tu espacio</a>
+    <a class="btn-reserva" id="btn-reserva-app" href="reservar.html" hidden>Reserva tu espacio</a>
     <a class="btn-reserva btn-normativa" href="normativa.html">Normativa</a>
-    <a class="btn-reserva btn-login" href="login.html">Iniciar sesión · Registrarse</a>
+    <a class="btn-reserva btn-login" id="btn-login-link" href="login.html">Iniciar sesión · Registrarse</a>
     <div id="searchResults"></div>
     <nav class="sb-nav" id="nav"></nav>
   </aside>
@@ -798,6 +799,19 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeFicha();});
 /* ---------- init ---------- */
 styleVars();buildNav();buildElGrid();buildMarco();buildPlano();initMtxTabs();buildMatrix();
 buildSelector();buildJourneys();buildSpaceCards();buildSearch();scrollSpy();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.8"></script>
+<script type="module">
+// Session-aware sidebar buttons: local session read only. On any failure the
+// guide keeps its logged-out default — this page never blocks or redirects.
+try {
+  const { supabase } = await import('./js/supabase.js');
+  const { data, error } = await supabase.auth.getSession();
+  if (!error && data?.session) {
+    document.getElementById('btn-reserva-app').hidden = false;
+    document.getElementById('btn-login-link').hidden = true;
+  }
+} catch (_) { /* stay logged-out */ }
 </script>
 </body>
 </html>
