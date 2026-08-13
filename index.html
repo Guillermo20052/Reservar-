@@ -808,8 +808,19 @@ try {
   const { supabase } = await import('./js/supabase.js');
   const { data, error } = await supabase.auth.getSession();
   if (!error && data?.session) {
-    document.getElementById('btn-reserva-app').hidden = false;
-    document.getElementById('btn-login-link').hidden = true;
+    // Students land on their own page; teacher/admin or any error stays here.
+    let isStudent = false;
+    try {
+      const { getProfile } = await import('./js/auth.js');
+      const profile = await getProfile();
+      isStudent = profile?.role === 'student';
+    } catch (_) { /* stay on the guide */ }
+    if (isStudent) {
+      window.location.replace('student.html');
+    } else {
+      document.getElementById('btn-reserva-app').hidden = false;
+      document.getElementById('btn-login-link').hidden = true;
+    }
   }
 } catch (_) { /* stay logged-out */ }
 </script>
