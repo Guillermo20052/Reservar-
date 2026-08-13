@@ -202,29 +202,9 @@ async function fetchBookingItems() {
     }
   }
 
-  const { data: legacy, error: legacyError } = await supabase
-    .from('timetable_slots')
-    .select('id, class_id, grade, day, start_time, end_time, is_multi, classes(name)')
-    .eq('teacher_id', teacherId);
-
-  if (legacyError && items.length === 0) throw legacyError;
-
-  for (const slot of legacy ?? []) {
-    if (slot.is_multi) continue;
-    if (!items.some((item) => item.slot_id === slot.id && !item.part_id)) {
-      items.push({
-        slot_id: slot.id,
-        part_id: null,
-        part_index: null,
-        grade: slot.grade,
-        day: slot.day,
-        start_time: slot.start_time,
-        end_time: slot.end_time,
-        class_name: slot.classes?.name || 'Clase',
-        is_multi: false,
-      });
-    }
-  }
+  // Ownership comes ONLY from the admin-assigned junction tables; the legacy
+  // timetable_slots.teacher_id column is stale and must never feed this list.
+  if (partError && assignError) throw partError;
 
   return items.sort((a, b) => {
     const dayOrder = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];

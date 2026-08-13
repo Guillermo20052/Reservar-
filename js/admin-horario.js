@@ -1016,6 +1016,10 @@ function wireEvents(panel) {
     let multiParts = [];
 
     if (isMulti) {
+      if (!state.teachers.length) {
+        showAlert('Las maestras aún no han cargado; espera un momento y vuelve a intentar. Guardar ahora borraría las asignaciones de maestras.');
+        return;
+      }
       const formParts = getMultiFormParts();
       if (!formParts[0].class_id || !formParts[1].class_id) {
         showAlert('Elige una materia para cada parte obligatoria (A y B).');
@@ -1113,6 +1117,11 @@ function wireEvents(panel) {
       );
     } catch (err) {
       showAlert(err.message || 'No se pudo guardar la franja.');
+      // A failed sync may have partially applied (delete-recreate is not
+      // transactional) — reload so the grid shows what actually persisted.
+      try {
+        await refreshAll();
+      } catch (_) { /* keep the original error visible */ }
     }
   });
 

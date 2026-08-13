@@ -354,9 +354,6 @@ BEGIN
     IF NOT EXISTS (
       SELECT 1 FROM public.timetable_slot_teachers tst
       WHERE tst.slot_id = p_slot_id AND tst.teacher_id = auth.uid()
-    ) AND NOT EXISTS (
-      SELECT 1 FROM public.timetable_slots ts
-      WHERE ts.id = p_slot_id AND ts.teacher_id = auth.uid()
     ) THEN
       RAISE EXCEPTION 'not your slot';
     END IF;
@@ -451,9 +448,6 @@ BEGIN
     IF NOT EXISTS (
       SELECT 1 FROM public.timetable_slot_teachers tst
       WHERE tst.slot_id = p_slot_id AND tst.teacher_id = auth.uid()
-    ) AND NOT EXISTS (
-      SELECT 1 FROM public.timetable_slots ts
-      WHERE ts.id = p_slot_id AND ts.teacher_id = auth.uid()
     ) THEN
       RAISE EXCEPTION 'not your slot';
     END IF;
