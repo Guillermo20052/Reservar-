@@ -156,6 +156,8 @@ footer{text-align:center;color:var(--faint);font-size:12.5px;margin-top:46px;pad
   font-family:var(--sans);transition:filter .14s,box-shadow .14s}
 button.btn-reserva{width:calc(100% - 24px)}
 .btn-reserva:hover{filter:brightness(1.05);box-shadow:var(--shadow)}
+.btn-volver{background:var(--mist);color:var(--navy)}
+.btn-volver:hover{background:var(--redwood-soft);filter:none;box-shadow:var(--shadow)}
 .btn-salir{background:#fff;color:var(--navy);border:1.5px solid var(--navy)}
 .btn-salir:hover{background:var(--navy);color:#fff;filter:none;box-shadow:var(--shadow)}
 .sb-nav{flex:1;overflow-y:auto;padding:4px 12px 20px}
@@ -191,7 +193,8 @@ button.btn-reserva{width:calc(100% - 24px)}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       <input id="search" type="text" placeholder="Buscar sección…" autocomplete="off">
     </div>
-    <a class="btn-reserva" href="/">← Volver a la guía</a>
+    <a class="btn-reserva" href="reservar.html">Reserva tu espacio</a>
+    <a class="btn-reserva btn-volver" href="/">← Volver a la guía</a>
     <button type="button" class="btn-reserva btn-salir" id="logout-btn">Cerrar sesión</button>
     <nav class="sb-nav" id="nav"></nav>
   </aside>

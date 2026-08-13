@@ -69,11 +69,6 @@ async function init() {
     return;
   }
 
-  if (profile.role === 'student') {
-    window.location.href = 'student.html';
-    return;
-  }
-
   renderHeader(profile);
   renderTabs(profile.role);
   wireLogout();
