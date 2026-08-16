@@ -127,6 +127,15 @@ section{padding-top:54px;scroll-margin-top:20px}
 #planoClear{font-size:12.5px;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--muted);
   padding:8px 14px;border-radius:9px;transition:.14s}
 #planoClear:hover{border-color:var(--brand);color:var(--brand)}
+.plano-edit-btn{font-size:12.5px;font-weight:700;border:1px solid var(--line);background:#fff;color:var(--muted);
+  border-radius:9px;padding:8px 12px;cursor:pointer;transition:.14s}
+.plano-edit-btn:hover{border-color:var(--brand);color:var(--brand)}
+#planoEditToggle{border-color:var(--brand);color:var(--brand)}
+.plano-edit-save{background:var(--brand);color:#fff;border-color:var(--brand)}
+.plano-edit-save:hover{filter:brightness(1.05);color:#fff}
+.plano-editing .hot{cursor:grab}
+.plano-editing .hot.dragging{cursor:grabbing;z-index:5;transform:translate(-50%,-50%) scale(1.12)}
+.plano-editing{outline:2px dashed var(--brand);outline-offset:4px;border-radius:var(--r)}
 .plano-status{font-size:13.5px;color:var(--muted);margin-bottom:10px;min-height:20px}
 .plano-status b{color:var(--ink)}
 .plano-wrap{position:relative;width:100%;background:#fff;border:1px solid var(--line);border-radius:var(--r);
@@ -513,7 +522,7 @@ function buildPlano(){
   const wrap=document.getElementById("planoWrap");
   spaces.forEach(s=>{
     const b=document.createElement("button");
-    b.className="hot "+elc(s.el); b.dataset.sp=s.i;
+    b.className="hot "+elc(s.el); b.dataset.sp=s.i; b.dataset.space=s.clean;
     b.style.left=(s.pos[0]*100)+"%"; b.style.top=(s.pos[1]*100)+"%";
     b.innerHTML=`<span class="pin"></span>${s.clean}`;
     b.onclick=()=>openFicha(s.i);
@@ -808,6 +817,7 @@ buildSelector();buildJourneys();buildSpaceCards();buildSearch();scrollSpy();
 try {
   const { supabase } = await import('./js/supabase.js');
   const { data, error } = await supabase.auth.getSession();
+  let isAdmin = false;
   if (!error && !data?.session) {
     // Logged out: clear the cached role so the head redirect never fires stale.
     try { localStorage.removeItem('rw-role'); } catch (_) {}
@@ -822,6 +832,7 @@ try {
         try { localStorage.setItem('rw-role', profile.role); } catch (_) {}
       }
       isStudent = profile?.role === 'student';
+      isAdmin = profile?.role === 'admin';
     } catch (_) { /* stay on the guide */ }
     if (isStudent) {
       window.location.replace('student.html');
@@ -830,7 +841,100 @@ try {
       document.getElementById('btn-login-link').hidden = true;
     }
   }
-} catch (_) { /* stay logged-out */ }
+
+  // --- Plano hotspot positions: read for everyone, edit for admins. ---
+  // Non-blocking and fail-safe: the plano already rendered from hardcoded
+  // defaults; if this table is missing or the fetch fails, defaults stand.
+  async function applyStoredPositions() {
+    try {
+      const { data: rows, error: perr } = await supabase
+        .from('space_positions').select('space_key, x, y');
+      if (perr || !rows) return;
+      for (const row of rows) {
+        if (row.x == null || row.y == null) continue;
+        const key = String(row.space_key).replace(/"/g, '\\"');
+        const btn = document.querySelector(`.hot[data-space="${key}"]`);
+        if (btn) { btn.style.left = (row.x * 100) + '%'; btn.style.top = (row.y * 100) + '%'; }
+      }
+    } catch (_) { /* keep defaults */ }
+  }
+
+  function initPlanoEditor() {
+    const wrap = document.getElementById('planoWrap');
+    const tools = document.querySelector('#plano .plano-tools');
+    if (!wrap || !tools) return;
+    const snapshot = () => [...wrap.querySelectorAll('.hot')].map((b) => ({ b, left: b.style.left, top: b.style.top }));
+    let saved = snapshot();
+    let editing = false;
+    let drag = null;
+    const changed = new Set();
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button'; toggle.id = 'planoEditToggle'; toggle.className = 'plano-edit-btn';
+    toggle.textContent = 'Editar plano';
+    const saveBtn = document.createElement('button');
+    saveBtn.type = 'button'; saveBtn.className = 'plano-edit-btn plano-edit-save'; saveBtn.textContent = 'Guardar posiciones'; saveBtn.hidden = true;
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button'; cancelBtn.className = 'plano-edit-btn plano-edit-cancel'; cancelBtn.textContent = 'Cancelar'; cancelBtn.hidden = true;
+    tools.append(toggle, saveBtn, cancelBtn);
+
+    const stop = () => { editing = false; wrap.classList.remove('plano-editing'); toggle.textContent = 'Editar plano'; saveBtn.hidden = true; cancelBtn.hidden = true; };
+
+    // Suppress ficha-opening clicks while editing.
+    wrap.addEventListener('click', (e) => { if (editing) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+    wrap.addEventListener('pointerdown', (e) => {
+      if (!editing) return;
+      const btn = e.target.closest('.hot'); if (!btn) return;
+      e.preventDefault(); drag = btn; btn.classList.add('dragging');
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!editing || !drag) return;
+      const r = wrap.getBoundingClientRect();
+      let fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+      fx = Math.min(1, Math.max(0, fx)); fy = Math.min(1, Math.max(0, fy));
+      drag.style.left = (fx * 100) + '%'; drag.style.top = (fy * 100) + '%';
+      changed.add(drag);
+    });
+    window.addEventListener('pointerup', () => { if (drag) { drag.classList.remove('dragging'); drag = null; } });
+
+    toggle.addEventListener('click', () => {
+      editing = !editing;
+      wrap.classList.toggle('plano-editing', editing);
+      toggle.textContent = editing ? 'Editando… arrastra los pines' : 'Editar plano';
+      saveBtn.hidden = !editing; cancelBtn.hidden = !editing;
+      if (editing) { saved = snapshot(); changed.clear(); }
+    });
+
+    cancelBtn.addEventListener('click', () => {
+      saved.forEach(({ b, left, top }) => { b.style.left = left; b.style.top = top; });
+      changed.clear(); stop();
+    });
+
+    saveBtn.addEventListener('click', async () => {
+      const rows = [...changed].map((b) => ({
+        space_key: b.dataset.space,
+        x: Math.min(1, Math.max(0, parseFloat(b.style.left) / 100)),
+        y: Math.min(1, Math.max(0, parseFloat(b.style.top) / 100)),
+      })).filter((r) => r.space_key);
+      if (!rows.length) { stop(); return; }
+      saveBtn.disabled = true; saveBtn.textContent = 'Guardando…';
+      try {
+        const { error: uerr } = await supabase.from('space_positions').upsert(rows, { onConflict: 'space_key' });
+        if (uerr) throw uerr;
+        saved = snapshot(); changed.clear(); stop();
+        alert('Posiciones guardadas.');
+      } catch (err) {
+        alert('No se pudieron guardar las posiciones: ' + (err?.message || err));
+      } finally {
+        saveBtn.disabled = false; saveBtn.textContent = 'Guardar posiciones';
+      }
+    });
+  }
+
+  await applyStoredPositions();
+  if (isAdmin) initPlanoEditor();
+} catch (_) { /* stay logged-out; plano keeps default positions */ }
 </script>
 </body>
 </html>

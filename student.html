@@ -267,17 +267,23 @@ button.btn-reserva{width:calc(100% - 24px)}
   </section>
 
   <section id="maestras">
-    <h2 class="sec">Tus maestras, tu guía</h2>
+    <h2 class="sec">Tu Red de Acompañamiento</h2>
     <div class="sec-intro">
-      <p>En Redwood, tus maestras no solo están al frente del salón: caminan a tu lado. En esta forma de aprender, cada maestra asume el papel de guía y mentora. Como dice Prakash Nair, el colegio se diseña a partir de cómo se aprende, y en ese diseño la maestra deja de ser quien solo transmite información para convertirse en quien diseña experiencias, te acompaña y te reta a pensar.</p>
-      <p>El Bachillerato Internacional comparte esa visión: la maestra facilita tu indagación, despierta tu curiosidad y te enseña a aprender a aprender. Su trabajo no es darte todas las respuestas, sino ayudarte a encontrarlas.</p>
+      <p>En Redwood, nunca caminas sola. Y no son solo tus maestras quienes caminan a tu lado: formas parte de una comunidad completa que te acompaña, te cuida y contribuye a que puedas aprender y crecer cada día.</p>
+      <p>A tu alrededor existe una gran red de apoyo formada por tus maestras, preceptoras, líderes de GROW &amp; PATH, directora, Consejo Directivo, Departamento de Formación, equipo de Sistemas y equipo de Mantenimiento e Intendencia. Cada persona, desde su función, aporta algo esencial para construir el entorno en el que aprendes, convives y te desarrollas. Algunas te acompañan directamente en tus aprendizajes y en tu crecimiento personal; otras cuidan tu bienestar, te orientan, hacen posible que la tecnología funcione, mantienen y preparan los espacios o trabajan detrás de cada experiencia que vives en la Prepa. Todas forman parte de Redwood y todas contribuyen a tu formación.</p>
+      <p>Dentro de esta red, tus maestras y preceptoras asumen especialmente el papel de guías y mentoras. Tus maestras te acompañan en tu aprendizaje, diseñan experiencias, te hacen preguntas y te retan a pensar; tus preceptoras te acompañan de manera cercana en tu crecimiento personal, académico y formativo, ayudándote a conocerte, tomar decisiones y enfrentar los retos que surgen en el camino.</p>
+      <p>Como propone Prakash Nair, el colegio se diseña a partir de cómo se aprende; por eso, la maestra deja de ser únicamente quien transmite información para convertirse en quien diseña experiencias, acompaña y crea las condiciones para que cada alumna participe activamente en su aprendizaje.</p>
+      <p>El Bachillerato Internacional comparte esta visión: la maestra facilita tu indagación, despierta tu curiosidad y te enseña a aprender a aprender. Su trabajo no es darte todas las respuestas, sino ayudarte a desarrollar las herramientas para encontrarlas, tomar decisiones y asumir cada vez mayor responsabilidad sobre tu propio aprendizaje.</p>
     </div>
     <div class="pillars">
-      <div class="pillar"><div class="pt">Una guía, no solo una clase</div><p>Cada maestra diseña experiencias, te acompaña y te reta a pensar, más que solo dar respuestas.</p></div>
-      <div class="pillar"><div class="pt">Cerca de ti</div><p>Su sala, Aether, está pensada para estar a la mano, no escondida, para que su apoyo esté siempre cerca.</p></div>
-      <div class="pillar"><div class="pt">En equipo por ti</div><p>Tus maestras planean juntas y comparten lo que funciona, para acompañarte mejor en cada paso.</p></div>
+      <div class="pillar"><div class="pt">Maestras</div><p>Diseñan experiencias, te hacen preguntas y te retan a pensar en tu aprendizaje.</p></div>
+      <div class="pillar"><div class="pt">Preceptoras</div><p>Te acompañan de cerca en tu crecimiento personal, académico y formativo.</p></div>
+      <div class="pillar"><div class="pt">GROW &amp; PATH y Formación</div><p>Cuidan tu bienestar y tu desarrollo integral día con día.</p></div>
+      <div class="pillar"><div class="pt">Directora y Consejo Directivo</div><p>Guían el rumbo de la Prepa y hacen posible tu comunidad.</p></div>
+      <div class="pillar"><div class="pt">Sistemas</div><p>Hacen que la tecnología funcione para que aprendas sin obstáculos.</p></div>
+      <div class="pillar"><div class="pt">Mantenimiento e Intendencia</div><p>Preparan y cuidan los espacios donde aprendes y convives.</p></div>
     </div>
-    <div class="ev-quote" style="margin-top:26px;max-width:66ch">Una maestra que te conoce, que cree en ti y que está cerca cambia lo que eres capaz de lograr. No caminas sola este camino: ellas caminan contigo.</div>
+    <div class="ev-quote" style="margin-top:26px;max-width:66ch">Cuando necesites orientación, apoyo, ayuda o simplemente alguien que te escuche, recuerda que hay toda una comunidad caminando contigo. En Redwood, acompañarte, cuidarte y ayudarte a crecer es una responsabilidad compartida.</div>
   </section>
 
   <section id="bienestar">
@@ -405,7 +411,7 @@ function buildHotspots(){
   document.getElementById("planoImg").src=P.plano;
   $("hotspots").innerHTML=(P.hots||[]).map(h=>{
     const s=byClean(h.clean); if(!s) return "";
-    return `<button class="hot" style="left:${h.x}%;top:${h.y}%;--hc:${elColor(s.el)}" title="${h.clean}" aria-label="Abrir ${h.clean}" onclick="openFicha('${h.clean.replace(/'/g,"\\'")}')"></button>`;
+    return `<button class="hot" data-space="${h.clean}" style="left:${h.x}%;top:${h.y}%;--hc:${elColor(s.el)}" title="${h.clean}" aria-label="Abrir ${h.clean}" onclick="openFicha('${h.clean.replace(/'/g,"\\'")}')"></button>`;
   }).join("");
 }
 /* sidebar nav (guide-style): build links, scroll-spy active state, search filter */
@@ -416,7 +422,7 @@ const NAV_SECTIONS=[
   ["evidencia","La ciencia","M10 2v7L4.5 19a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 9V2M8.5 2h7"],
   ["plano","Plano","M9 20l-6-3V4l6 3m0 13 6-3m-6 3V7m6 10 6 3V7l-6-3m0 13V4M9 7l6-3"],
   ["espacios","Los espacios","M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"],
-  ["maestras","Tus maestras","M22 10 12 5 2 10l10 5 10-5zM6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"],
+  ["maestras","Tu red","M22 10 12 5 2 10l10 5 10-5zM6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"],
   ["bienestar","Tu bienestar","M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"],
 ];
 function buildSideNav(){
@@ -460,6 +466,24 @@ buildSideNav();scrollSpySide();wireSideSearch();
 </script>
 <script type="module">
 import { requireAuth, getProfile, signOut } from './js/auth.js';
+import { supabase } from './js/supabase.js';
+
+// Overlay any admin-saved hotspot positions onto the already-rendered plano.
+// Read-only here (students never edit); non-blocking and fail-safe — if the
+// table is missing or the fetch fails, the hardcoded defaults stand.
+async function applyStoredPositions() {
+  try {
+    const { data: rows, error } = await supabase
+      .from('space_positions').select('space_key, x, y');
+    if (error || !rows) return;
+    for (const row of rows) {
+      if (row.x == null || row.y == null) continue;
+      const key = String(row.space_key).replace(/"/g, '\\"');
+      const btn = document.querySelector(`.hot[data-space="${key}"]`);
+      if (btn) { btn.style.left = (row.x * 100) + '%'; btn.style.top = (row.y * 100) + '%'; }
+    }
+  } catch (_) { /* keep defaults */ }
+}
 
 async function initStudentGuard() {
   const user = await requireAuth('login.html');
@@ -481,6 +505,9 @@ async function initStudentGuard() {
 
   document.getElementById('user-name').textContent = profile.full_name || 'Alumna';
   document.getElementById('logout-btn').addEventListener('click', () => signOut());
+
+  // Fire-and-forget: fresh hotspot positions if an admin has moved them.
+  applyStoredPositions();
 }
 
 initStudentGuard();
