@@ -122,8 +122,9 @@ footer{text-align:center;color:var(--faint);font-size:12.5px;margin-top:46px;pad
 .planowrap{position:relative;width:100%;max-width:1000px;margin:0 auto;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);background:#fff}
 .planoimg{width:100%;display:block}
 .hotspots{position:absolute;inset:0}
-.hot{position:absolute;transform:translate(-50%,-50%);width:10.5%;height:5%;min-width:48px;min-height:26px;border:2px solid var(--hc);border-radius:30px;background:transparent;cursor:pointer;opacity:.32;transition:.16s;padding:0}
-.hot:hover,.hot:focus-visible{opacity:1;background:rgba(255,255,255,.34);transform:translate(-50%,-50%) scale(1.07);outline:none}
+.hot{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;padding:4px 9px 4px 6px;border-radius:22px;background:rgba(255,255,255,.94);border:2px solid var(--hc);box-shadow:0 3px 10px rgba(40,30,20,.18);font-size:12px;font-weight:700;color:var(--ink);cursor:pointer;transition:transform .16s,opacity .2s,filter .2s;white-space:nowrap;z-index:2}
+.hot .pin{width:9px;height:9px;border-radius:50%;background:var(--hc);flex:0 0 auto}
+.hot:hover,.hot:focus-visible{transform:translate(-50%,-50%) scale(1.12);z-index:5;outline:none}
 .ev-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:22px}
 .ev-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:22px;box-shadow:var(--shadow)}
 .ev-stat{font-family:var(--serif);font-weight:600;font-size:42px;color:var(--accent);line-height:1}
@@ -411,7 +412,7 @@ function buildHotspots(){
   document.getElementById("planoImg").src=P.plano;
   $("hotspots").innerHTML=(P.hots||[]).map(h=>{
     const s=byClean(h.clean); if(!s) return "";
-    return `<button class="hot" data-space="${h.clean}" style="left:${h.x}%;top:${h.y}%;--hc:${elColor(s.el)}" title="${h.clean}" aria-label="Abrir ${h.clean}" onclick="openFicha('${h.clean.replace(/'/g,"\\'")}')"></button>`;
+    return `<button class="hot" data-space="${h.clean}" style="left:${h.x}%;top:${h.y}%;--hc:${elColor(s.el)}" title="${h.clean}" aria-label="Abrir ${h.clean}" onclick="openFicha('${h.clean.replace(/'/g,"\\'")}')"><span class="pin"></span>${h.clean}</button>`;
   }).join("");
 }
 /* sidebar nav (guide-style): build links, scroll-spy active state, search filter */
