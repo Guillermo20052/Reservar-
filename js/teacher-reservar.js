@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js';
+import { formatWeekStart } from './week-utils.js';
 
 const WEEKDAY_LABELS = {
   lunes: 'Lunes',
@@ -122,7 +123,7 @@ async function fetchProfileNameMap(ids) {
 async function fetchSession() {
   const { data, error } = await supabase
     .from('draft_sessions')
-    .select('id, phase, current_position, turn_ends_at, started_at')
+    .select('id, phase, current_position, turn_ends_at, started_at, week_start')
     .neq('phase', 'closed')
     .order('created_at', { ascending: false })
     .limit(1)
@@ -503,6 +504,17 @@ function renderBanner(ui) {
   `;
 }
 
+/**
+ * Which week these picks belong to. Drafts are week-scoped now (a draft can be
+ * run days ahead for a future week), so the teacher must see the target week
+ * rather than assume "this week".
+ */
+function renderWeekLine() {
+  const weekStart = state.session?.week_start;
+  if (!weekStart) return '';
+  return `<p class="reservar-week-label horario-week-label">Reservas para la ${escapeHtml(formatWeekStart(weekStart).toLowerCase())}</p>`;
+}
+
 function renderConfirmRow(ui) {
   if (!ui.canEditPicks) return '';
 
@@ -537,6 +549,7 @@ function renderContent() {
 
   root.innerHTML = `
     ${renderBanner(ui)}
+    ${renderWeekLine()}
     <section class="reservar-slots-section">
       <h3 class="reservar-section-title">Tus franjas</h3>
       <ul class="reservar-slot-list">${itemRows}</ul>

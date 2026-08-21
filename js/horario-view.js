@@ -1,4 +1,10 @@
 import { supabase } from './supabase.js';
+import {
+  displayWeekStart,
+  weekDays,
+  todayIndexIn,
+  formatWeekRange,
+} from './week-utils.js';
 
 const GRADES = ['10mo', '11vo', '12vo'];
 const WEEKDAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
@@ -11,66 +17,22 @@ const WEEKDAY_LABELS = {
   viernes: 'Viernes',
 };
 
-const MONTH_NAMES_ES = [
-  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
-  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
-];
+export { GRADES };
 
 /**
- * Current calendar date (wall clock) in America/Monterrey, computed
- * client-side via Intl. Monterrey is UTC-6 year-round (no DST since 2022),
- * but Intl handles that for us regardless.
- */
-function getMonterreyToday() {
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Monterrey',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date());
-  const [y, m, d] = parts.split('-').map(Number);
-  return { y, m, d };
-}
-
-/**
- * Pure display helper: the Mon–Fri dates of the week shown in the grid.
- * Mon–Fri → the current week; Sat/Sun → the upcoming school week.
- * All arithmetic is done on UTC-anchored dates so the host machine's
- * timezone/DST can never shift the calendar day.
- * Returns { days: Date[5], todayIndex: 0–4 or -1 (weekend → none) }.
- */
-function computeWeekInfo() {
-  const { y, m, d } = getMonterreyToday();
-  const today = new Date(Date.UTC(y, m - 1, d));
-  const dow = today.getUTCDay(); // 0 = Sunday … 6 = Saturday
-  let offsetToMonday;
-  if (dow === 0) offsetToMonday = 1;      // Sunday → tomorrow's Monday
-  else if (dow === 6) offsetToMonday = 2; // Saturday → upcoming Monday
-  else offsetToMonday = 1 - dow;          // Mon–Fri → this week's Monday
-  const days = [];
-  for (let i = 0; i < 5; i++) {
-    days.push(new Date(Date.UTC(y, m - 1, d + offsetToMonday + i)));
-  }
-  const todayIndex = dow >= 1 && dow <= 5 ? dow - 1 : -1;
-  return { days, todayIndex };
-}
-
-function formatWeekRange(days) {
-  const start = days[0];
-  const end = days[4];
-  const sd = start.getUTCDate();
-  const ed = end.getUTCDate();
-  const sm = MONTH_NAMES_ES[start.getUTCMonth()];
-  const em = MONTH_NAMES_ES[end.getUTCMonth()];
-  const sy = start.getUTCFullYear();
-  const ey = end.getUTCFullYear();
-  if (sy === ey && sm === em) return `Semana del ${sd} al ${ed} de ${sm}`;
-  if (sy === ey) return `Semana del ${sd} de ${sm} al ${ed} de ${em}`;
-  return `Semana del ${sd} de ${sm} de ${sy} al ${ed} de ${em} de ${ey}`;
-}
-
-/** @type {{
+ * The grid is rendered by an *instance* so the same code can be mounted more
+ * than once on a page (the Horario tab shows one grade with a selector; the
+ * Horario general tab stacks all three). Every DOM id is namespaced with the
+ * instance prefix and every instance owns its own Realtime channel.
+ *
+ * @typedef {{
+ *   prefix: string,
+ *   channelName: string,
  *   grade: string,
+ *   showGradeSelect: boolean,
+ *   showPlanoLink: boolean,
+ *   title: string | null,
+ *   weekStart: string,
  *   slots: object[],
  *   session: object | null,
  *   spaceBySlotId: Record<string, string[]>,
@@ -78,17 +40,11 @@ function formatWeekRange(days) {
  *   teacherNames: Record<string, string>,
  *   channel: object | null,
  *   debounceTimer: ReturnType<typeof setTimeout> | null,
- * }} */
-const state = {
-  grade: '10mo',
-  slots: [],
-  session: null,
-  spaceBySlotId: {},
-  spaceByPartId: {},
-  teacherNames: {},
-  channel: null,
-  debounceTimer: null,
-};
+ * }} HorarioInstance
+ */
+
+/** Live instances, so a re-mount can tear down its predecessors. */
+const instances = new Map();
 
 function escapeHtml(text) {
   return String(text)
@@ -108,30 +64,30 @@ function timeToMinutes(time) {
   return h * 60 + m;
 }
 
-function showAlert(message) {
-  const el = document.getElementById('horario-view-alert');
+function showAlert(inst, message) {
+  const el = document.getElementById(`${inst.prefix}-alert`);
   if (!el) return;
   el.textContent = message;
   el.hidden = false;
 }
 
-function hideAlert() {
-  const el = document.getElementById('horario-view-alert');
+function hideAlert(inst) {
+  const el = document.getElementById(`${inst.prefix}-alert`);
   if (el) el.hidden = true;
 }
 
-function unsubscribeChannel() {
-  if (state.channel) {
-    supabase.removeChannel(state.channel);
-    state.channel = null;
+function unsubscribeChannel(inst) {
+  if (inst.channel) {
+    supabase.removeChannel(inst.channel);
+    inst.channel = null;
   }
 }
 
-function cleanup() {
-  unsubscribeChannel();
-  if (state.debounceTimer) {
-    clearTimeout(state.debounceTimer);
-    state.debounceTimer = null;
+function cleanup(inst) {
+  unsubscribeChannel(inst);
+  if (inst.debounceTimer) {
+    clearTimeout(inst.debounceTimer);
+    inst.debounceTimer = null;
   }
 }
 
@@ -211,32 +167,31 @@ async function fetchSlots(grade) {
   return (data ?? []).map(normalizeSlot);
 }
 
-async function fetchSession() {
-  const { data: active, error: activeError } = await supabase
+/**
+ * The draft session for the week the grid is showing (newest first, whatever
+ * its phase) — used only to decide whether the "draft en curso" banner shows.
+ * Weeks are the unit now, so this no longer looks at "the newest session
+ * anywhere": a draft being prepared for a future week must not put a banner on
+ * this week's grid.
+ */
+async function fetchWeekSession(weekStart) {
+  const { data, error } = await supabase
     .from('draft_sessions')
-    .select('id, phase, created_at')
-    .neq('phase', 'closed')
+    .select('id, phase, week_start, created_at')
+    .eq('week_start', weekStart)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (activeError) throw activeError;
-  if (active) return active;
-
-  const { data: latest, error: latestError } = await supabase
-    .from('draft_sessions')
-    .select('id, phase, created_at')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (latestError) throw latestError;
-  return latest;
+  if (error) throw error;
+  return data;
 }
 
-async function fetchConfirmedReservations(sessionId) {
+/** Confirmed picks for the displayed week, straight off reservations.week_start. */
+async function fetchConfirmedReservations(weekStart) {
   const { data, error } = await supabase
     .from('reservations')
     .select('slot_id, slot_part_id, space_id, spaces(name)')
-    .eq('session_id', sessionId)
+    .eq('week_start', weekStart)
     .eq('confirmed', true);
   if (error) throw error;
   return data ?? [];
@@ -265,33 +220,47 @@ function formatSpaceList(names) {
   return names.join(', ');
 }
 
-function buildPanelShell() {
-  return `
-    <h2 class="panel-title">Horario</h2>
-    <div id="horario-view-alert" class="alert alert-error" hidden></div>
-    <div id="horario-view-draft-banner" class="horario-view-draft-banner" hidden></div>
+function buildPanelShell(inst) {
+  const heading = inst.title === null
+    ? ''
+    : `<h2 class="panel-title">${escapeHtml(inst.title)}</h2>`;
+
+  const planoLink = inst.showPlanoLink
+    ? `
     <section class="horario-view-plano-link">
       <a class="btn btn-ghost horario-view-plano-btn" href="/#plano">Ver plano interactivo</a>
       <p class="horario-view-plano-note">Consulta el mapa de espacios en la guía pedagógica.</p>
-    </section>
+    </section>`
+    : '';
+
+  const gradeSelect = inst.showGradeSelect
+    ? `
     <section class="horario-view-section">
-      <label class="horario-view-grade-label" for="horario-view-grade">Grado</label>
-      <select class="input horario-grade-select" id="horario-view-grade">
+      <label class="horario-view-grade-label" for="${inst.prefix}-grade">Grado</label>
+      <select class="input horario-grade-select" id="${inst.prefix}-grade">
         ${GRADES.map((g) => `<option value="${g}">${g}</option>`).join('')}
       </select>
-    </section>
+    </section>`
+    : '';
+
+  return `
+    ${heading}
+    <div id="${inst.prefix}-alert" class="alert alert-error" hidden></div>
+    <div id="${inst.prefix}-draft-banner" class="horario-view-draft-banner" hidden></div>
+    ${planoLink}
+    ${gradeSelect}
     <section class="horario-view-section">
-      <p id="horario-view-week-label" class="horario-week-label"></p>
-      <div id="horario-view-grid" class="horario-grid"></div>
+      <p id="${inst.prefix}-week-label" class="horario-week-label"></p>
+      <div id="${inst.prefix}-grid" class="horario-grid"></div>
     </section>
   `;
 }
 
-function renderDraftBanner() {
-  const banner = document.getElementById('horario-view-draft-banner');
+function renderDraftBanner(inst) {
+  const banner = document.getElementById(`${inst.prefix}-draft-banner`);
   if (!banner) return;
 
-  if (state.session && (state.session.phase === 'live' || state.session.phase === 'open')) {
+  if (inst.session && (inst.session.phase === 'live' || inst.session.phase === 'open')) {
     banner.hidden = false;
     banner.textContent = 'Draft en curso — los espacios aparecen al confirmarse.';
   } else {
@@ -300,17 +269,17 @@ function renderDraftBanner() {
   }
 }
 
-function renderGrid() {
-  const grid = document.getElementById('horario-view-grid');
+function renderGrid(inst) {
+  const grid = document.getElementById(`${inst.prefix}-grid`);
   if (!grid) return;
 
-  // Recomputed on every render — pure client-side display, no DB/config.
-  const week = computeWeekInfo();
-  const weekLabel = document.getElementById('horario-view-week-label');
-  if (weekLabel) weekLabel.textContent = formatWeekRange(week.days);
+  const days = weekDays(inst.weekStart);
+  const todayIndex = todayIndexIn(inst.weekStart);
+  const weekLabel = document.getElementById(`${inst.prefix}-week-label`);
+  if (weekLabel) weekLabel.textContent = formatWeekRange(days);
 
   grid.innerHTML = WEEKDAYS.map((day, dayIndex) => {
-    const daySlots = state.slots
+    const daySlots = inst.slots
       .filter((s) => s.day === day)
       .sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
 
@@ -322,9 +291,9 @@ function renderGrid() {
             const partsHtml = slot.parts
               .map((part) => {
                 const teacher = part.teacher_ids.length
-                  ? part.teacher_ids.map((id) => state.teacherNames[id] || 'Sin asignar').join(', ')
+                  ? part.teacher_ids.map((id) => inst.teacherNames[id] || 'Sin asignar').join(', ')
                   : 'Sin asignar';
-                const spaceNames = formatSpaceList(state.spaceByPartId[part.id]);
+                const spaceNames = formatSpaceList(inst.spaceByPartId[part.id]);
                 const spaceHtml = spaceNames
                   ? `<span class="chip horario-view-space-chip">${escapeHtml(spaceNames)}</span>`
                   : '<span class="chip chip--muted horario-view-space-pending">Espacio por definir</span>';
@@ -354,9 +323,9 @@ function renderGrid() {
 
           const className = slot.classes?.name || 'Clase';
           const teacher = slot.teacher_ids.length
-            ? slot.teacher_ids.map((id) => state.teacherNames[id] || 'Sin asignar').join(', ')
+            ? slot.teacher_ids.map((id) => inst.teacherNames[id] || 'Sin asignar').join(', ')
             : 'Sin asignar';
-          const spaceNames = formatSpaceList(state.spaceBySlotId[slot.id]);
+          const spaceNames = formatSpaceList(inst.spaceBySlotId[slot.id]);
           const spaceHtml = spaceNames
             ? `<span class="chip horario-view-space-chip">${escapeHtml(spaceNames)}</span>`
             : '<span class="chip chip--muted horario-view-space-pending">Espacio por definir</span>';
@@ -376,8 +345,8 @@ function renderGrid() {
         }).join('')
       : '<p class="horario-day-empty">Sin franjas</p>';
 
-    const isToday = dayIndex === week.todayIndex;
-    const dayNum = week.days[dayIndex].getUTCDate();
+    const isToday = dayIndex === todayIndex;
+    const dayNum = days[dayIndex].getUTCDate();
     const todayChip = isToday ? '<span class="horario-today-chip">Hoy</span>' : '';
 
     return `
@@ -389,93 +358,134 @@ function renderGrid() {
   }).join('');
 }
 
-async function refresh() {
-  hideAlert();
-  state.slots = await fetchSlots(state.grade);
-  state.teacherNames = await fetchProfileNameMap(
-    state.slots.flatMap((s) => [
+async function refresh(inst) {
+  hideAlert(inst);
+  // Recomputed on every refresh — the displayed week is pure client-side
+  // display state, and it is also the key the reservations query uses.
+  inst.weekStart = displayWeekStart();
+  inst.slots = await fetchSlots(inst.grade);
+  inst.teacherNames = await fetchProfileNameMap(
+    inst.slots.flatMap((s) => [
       ...s.teacher_ids,
       ...(s.parts ?? []).flatMap((p) => p.teacher_ids),
     ])
   );
-  state.session = await fetchSession();
+  inst.session = await fetchWeekSession(inst.weekStart);
 
-  if (state.session) {
-    const reservations = await fetchConfirmedReservations(state.session.id);
-    const maps = buildSpaceMaps(reservations);
-    state.spaceBySlotId = maps.bySlot;
-    state.spaceByPartId = maps.byPart;
-  } else {
-    state.spaceBySlotId = {};
-    state.spaceByPartId = {};
-  }
+  const reservations = await fetchConfirmedReservations(inst.weekStart);
+  const maps = buildSpaceMaps(reservations);
+  inst.spaceBySlotId = maps.bySlot;
+  inst.spaceByPartId = maps.byPart;
 
-  renderDraftBanner();
-  renderGrid();
+  renderDraftBanner(inst);
+  renderGrid(inst);
 }
 
-function onRealtimeChange() {
-  if (state.debounceTimer) clearTimeout(state.debounceTimer);
-  state.debounceTimer = setTimeout(() => {
-    refresh().catch((err) => {
-      showAlert(err.message || 'No se pudo actualizar el horario.');
+function onRealtimeChange(inst) {
+  if (inst.debounceTimer) clearTimeout(inst.debounceTimer);
+  inst.debounceTimer = setTimeout(() => {
+    refresh(inst).catch((err) => {
+      showAlert(inst, err.message || 'No se pudo actualizar el horario.');
     });
   }, 150);
 }
 
-function subscribe() {
-  unsubscribeChannel();
+function subscribe(inst) {
+  unsubscribeChannel(inst);
 
-  state.channel = supabase
-    .channel('horario-view')
+  inst.channel = supabase
+    .channel(inst.channelName)
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'reservations' },
-      onRealtimeChange
+      () => onRealtimeChange(inst)
     )
     .on(
       'postgres_changes',
       { event: '*', schema: 'public', table: 'draft_sessions' },
-      onRealtimeChange
+      () => onRealtimeChange(inst)
     )
     .subscribe();
 }
 
-function wireEvents(panel) {
-  panel.addEventListener('change', async (e) => {
-    if (e.target.id !== 'horario-view-grade') return;
-    hideAlert();
-    state.grade = e.target.value;
+function wireEvents(inst, root) {
+  if (!inst.showGradeSelect) return;
+  root.addEventListener('change', async (e) => {
+    if (e.target.id !== `${inst.prefix}-grade`) return;
+    hideAlert(inst);
+    inst.grade = e.target.value;
     try {
-      await refresh();
+      await refresh(inst);
     } catch (err) {
-      showAlert(err.message || 'No se pudo cargar el horario.');
+      showAlert(inst, err.message || 'No se pudo cargar el horario.');
     }
   });
+}
+
+/**
+ * Render one grade grid into `root`. Same markup, same queries, same styling as
+ * the Horario tab — only the mount point, the id prefix and the Realtime
+ * channel name differ.
+ */
+export async function mountHorarioGrid({
+  root,
+  prefix,
+  channelName,
+  grade = '10mo',
+  showGradeSelect = false,
+  showPlanoLink = false,
+  title = null,
+}) {
+  const existing = instances.get(prefix);
+  if (existing) cleanup(existing);
+
+  /** @type {HorarioInstance} */
+  const inst = {
+    prefix,
+    channelName,
+    grade,
+    showGradeSelect,
+    showPlanoLink,
+    title,
+    weekStart: displayWeekStart(),
+    slots: [],
+    session: null,
+    spaceBySlotId: {},
+    spaceByPartId: {},
+    teacherNames: {},
+    channel: null,
+    debounceTimer: null,
+  };
+  instances.set(prefix, inst);
+
+  root.innerHTML = buildPanelShell(inst);
+  if (showGradeSelect) {
+    document.getElementById(`${prefix}-grade`).value = inst.grade;
+  }
+
+  wireEvents(inst, root);
+  subscribe(inst);
+
+  try {
+    await refresh(inst);
+  } catch (err) {
+    showAlert(inst, err.message || 'No se pudo cargar el horario.');
+  }
+
+  return inst;
 }
 
 export async function mountHorario(profile) {
   const panel = document.getElementById('panel-horario');
   if (!panel) return;
 
-  cleanup();
-
-  state.grade = '10mo';
-  state.slots = [];
-  state.session = null;
-  state.spaceBySlotId = {};
-  state.spaceByPartId = {};
-  state.teacherNames = {};
-
-  panel.innerHTML = buildPanelShell();
-  document.getElementById('horario-view-grade').value = state.grade;
-
-  wireEvents(panel);
-  subscribe();
-
-  try {
-    await refresh();
-  } catch (err) {
-    showAlert(err.message || 'No se pudo cargar el horario.');
-  }
+  await mountHorarioGrid({
+    root: panel,
+    prefix: 'horario-view',
+    channelName: 'horario-view',
+    grade: '10mo',
+    showGradeSelect: true,
+    showPlanoLink: true,
+    title: 'Horario',
+  });
 }

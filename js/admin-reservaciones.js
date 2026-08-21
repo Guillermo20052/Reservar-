@@ -1,4 +1,14 @@
 import { supabase } from './supabase.js';
+import {
+  upcomingWeekStart,
+  currentWeekStart,
+  addWeeks,
+  fromIsoDate,
+  toIsoDate,
+  mondayOf,
+  formatWeekStart,
+  weekRelation,
+} from './week-utils.js';
 
 const STATUS_LABELS = {
   pending: 'Pendiente',
@@ -8,19 +18,44 @@ const STATUS_LABELS = {
 };
 
 const PHASE_LABELS = {
+  setup: 'Preparación',
   live: 'En vivo',
   open: 'Abierto',
+  closed: 'Cerrado',
+};
+
+const RELATION_LABELS = {
+  pasada: 'Semana pasada',
+  actual: 'Semana actual',
+  futura: 'Semana futura',
+};
+
+const WEEKDAYS = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'];
+
+const WEEKDAY_LABELS = {
+  lunes: 'Lunes',
+  martes: 'Martes',
+  miercoles: 'Miércoles',
+  jueves: 'Jueves',
+  viernes: 'Viernes',
 };
 
 /** @type {{
  *   profile: object | null,
+ *   weekStart: string,
+ *   view: 'draft' | 'historial',
  *   session: object | null,
+ *   weekHasSession: boolean,
  *   turns: object[],
  *   reservations: object[],
+ *   weekConfirmedCount: number,
  *   assignedTeachers: object[],
  *   teacherNames: Record<string, string>,
  *   orderMode: 'random' | 'ordenado' | 'open',
  *   orderedTeacherIds: string[],
+ *   historyWeeks: object[],
+ *   historyOpenWeek: string | null,
+ *   historyRows: object[],
  *   draftChannel: object | null,
  *   countdownInterval: ReturnType<typeof setInterval> | null,
  *   debounceTimer: ReturnType<typeof setTimeout> | null,
@@ -28,13 +63,20 @@ const PHASE_LABELS = {
  * }} */
 const state = {
   profile: null,
+  weekStart: upcomingWeekStart(),
+  view: 'draft',
   session: null,
+  weekHasSession: false,
   turns: [],
   reservations: [],
+  weekConfirmedCount: 0,
   assignedTeachers: [],
   teacherNames: {},
   orderMode: 'random',
   orderedTeacherIds: [],
+  historyWeeks: [],
+  historyOpenWeek: null,
+  historyRows: [],
   draftChannel: null,
   countdownInterval: null,
   debounceTimer: null,
@@ -89,6 +131,11 @@ function teacherNameById(id) {
   return state.teacherNames[id] || 'Sin nombre';
 }
 
+function formatTime(time) {
+  if (!time) return '';
+  return String(time).slice(0, 5);
+}
+
 async function fetchProfileNameMap(ids) {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length) return {};
@@ -113,11 +160,16 @@ async function loadTeacherNames() {
   state.teacherNames = await fetchProfileNameMap(ids);
 }
 
-async function fetchSession() {
+/**
+ * The newest session for the selected week, whatever its phase. A draft for a
+ * different week (past history, or a future week prepared in advance) is never
+ * returned — that is the whole point of week scoping.
+ */
+async function fetchSession(weekStart) {
   const { data, error } = await supabase
     .from('draft_sessions')
-    .select('id, phase, order_mode, current_position, turn_ends_at, started_at, created_at')
-    .neq('phase', 'closed')
+    .select('id, phase, order_mode, current_position, turn_ends_at, started_at, created_at, week_start')
+    .eq('week_start', weekStart)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -142,6 +194,17 @@ async function fetchReservations(sessionId) {
     .eq('session_id', sessionId);
   if (error) throw error;
   return data ?? [];
+}
+
+/** Confirmed rows already banked for a week — what start_draft will PRESERVE. */
+async function fetchWeekConfirmedCount(weekStart) {
+  const { count, error } = await supabase
+    .from('reservations')
+    .select('id', { count: 'exact', head: true })
+    .eq('week_start', weekStart)
+    .eq('confirmed', true);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 async function fetchAssignedTeachers() {
@@ -192,11 +255,151 @@ function pickCountsForTeacher(teacherId) {
   return { total: picks.length, confirmed };
 }
 
+// ---------------------------------------------------------------------------
+// Historial
+// ---------------------------------------------------------------------------
+
+/** Every week that ever had a draft, newest first, with its confirmed total. */
+async function fetchHistoryWeeks() {
+  const { data: sessions, error: sessionError } = await supabase
+    .from('draft_sessions')
+    .select('id, week_start, phase, order_mode, started_at, created_at')
+    .order('week_start', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (sessionError) throw sessionError;
+
+  const { data: confirmed, error: confirmedError } = await supabase
+    .from('reservations')
+    .select('week_start')
+    .eq('confirmed', true);
+  if (confirmedError) throw confirmedError;
+
+  /** @type {Record<string, number>} */
+  const counts = {};
+  for (const row of confirmed ?? []) {
+    counts[row.week_start] = (counts[row.week_start] ?? 0) + 1;
+  }
+
+  /** @type {Map<string, object>} */
+  const byWeek = new Map();
+  for (const s of sessions ?? []) {
+    if (!byWeek.has(s.week_start)) {
+      byWeek.set(s.week_start, {
+        week_start: s.week_start,
+        phase: s.phase,
+        order_mode: s.order_mode,
+        started_at: s.started_at,
+        sessions: 0,
+        confirmed: counts[s.week_start] ?? 0,
+      });
+    }
+    byWeek.get(s.week_start).sessions += 1;
+  }
+
+  // A week can hold reservations without a surviving session row (legacy rows
+  // backfilled by sql/draft_weeks.sql) — list it anyway so nothing is hidden.
+  for (const week of Object.keys(counts)) {
+    if (!byWeek.has(week)) {
+      byWeek.set(week, {
+        week_start: week,
+        phase: null,
+        order_mode: null,
+        started_at: null,
+        sessions: 0,
+        confirmed: counts[week],
+      });
+    }
+  }
+
+  return [...byWeek.values()].sort((a, b) => (a.week_start < b.week_start ? 1 : -1));
+}
+
+/** Read-only confirmed assignments for one past week. */
+async function fetchHistoryRows(weekStart) {
+  const { data, error } = await supabase
+    .from('reservations')
+    .select(`
+      id, day, start_time, teacher_id, space_id, week_start,
+      spaces(name),
+      timetable_slots(grade, classes(name)),
+      timetable_slot_parts(classes(name))
+    `)
+    .eq('week_start', weekStart)
+    .eq('confirmed', true)
+    .order('day')
+    .order('start_time');
+  if (error) throw error;
+
+  const rows = data ?? [];
+  const names = await fetchProfileNameMap(rows.map((r) => r.teacher_id));
+  return rows.map((r) => ({
+    id: r.id,
+    day: r.day,
+    start_time: r.start_time,
+    grade: r.timetable_slots?.grade || '—',
+    class_name: r.timetable_slot_parts?.classes?.name
+      || r.timetable_slots?.classes?.name
+      || 'Clase',
+    space_name: r.spaces?.name || '—',
+    teacher_name: names[r.teacher_id] || 'Sin nombre',
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Render
+// ---------------------------------------------------------------------------
+
 function buildPanelShell() {
   return `
     <h2 class="panel-title">Reservaciones semanales</h2>
     <div id="draft-alert" class="alert alert-error" hidden></div>
+    <div class="draft-viewbar">
+      <button type="button" class="tab draft-viewtab" data-view="draft">Draft</button>
+      <button type="button" class="tab draft-viewtab" data-view="historial">Historial</button>
+    </div>
+    <div id="draft-weekbar"></div>
     <div id="draft-content"></div>
+  `;
+}
+
+function renderViewTabs() {
+  const panel = state.panel;
+  if (!panel) return;
+  panel.querySelectorAll('.draft-viewtab').forEach((btn) => {
+    const active = btn.dataset.view === state.view;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', String(active));
+  });
+}
+
+function renderWeekBar() {
+  const bar = document.getElementById('draft-weekbar');
+  if (!bar) return;
+
+  if (state.view !== 'draft') {
+    bar.innerHTML = '';
+    return;
+  }
+
+  const relation = weekRelation(state.weekStart);
+
+  bar.innerHTML = `
+    <section class="draft-weekbar">
+      <div class="draft-weekbar-nav">
+        <button type="button" class="btn btn-ghost draft-btn-sm" id="draft-week-prev" aria-label="Semana anterior">◀</button>
+        <div class="draft-weekbar-main">
+          <span class="draft-weekbar-label">${escapeHtml(formatWeekStart(state.weekStart))}</span>
+          <span class="badge draft-week-chip draft-week-chip-${relation}">${RELATION_LABELS[relation]}</span>
+        </div>
+        <button type="button" class="btn btn-ghost draft-btn-sm" id="draft-week-next" aria-label="Semana siguiente">▶</button>
+      </div>
+      <div class="draft-weekbar-controls">
+        <label class="draft-week-input-label" for="draft-week-input">Semana (lunes)</label>
+        <input type="date" class="input draft-week-input" id="draft-week-input" value="${state.weekStart}">
+        <button type="button" class="btn btn-ghost draft-btn-sm" data-week-jump="current">Semana actual</button>
+        <button type="button" class="btn btn-ghost draft-btn-sm" data-week-jump="upcoming">Próxima semana</button>
+      </div>
+    </section>
   `;
 }
 
@@ -209,6 +412,7 @@ function renderSetup() {
   const hasTeachers = state.assignedTeachers.length > 0;
   const isOrdenado = state.orderMode === 'ordenado';
   const isOpen = state.orderMode === 'open';
+  const weekLabel = formatWeekStart(state.weekStart);
 
   const teacherList = isOrdenado
     ? state.orderedTeacherIds.map((id, index) => {
@@ -228,9 +432,16 @@ function renderSetup() {
         `<li class="draft-teacher-preview">${escapeHtml(t.full_name || 'Sin nombre')}</li>`
       ).join('');
 
+  // The scope sentence has to be exact: start_draft only ever touches the
+  // selected week, and it keeps that week's already-confirmed rows when the
+  // week has run before.
+  const scopeText = state.weekHasSession
+    ? `Solo afecta a <strong>${escapeHtml(weekLabel.toLowerCase())}</strong>: se conservan sus ${state.weekConfirmedCount} reservacion${state.weekConfirmedCount === 1 ? '' : 'es'} confirmada${state.weekConfirmedCount === 1 ? '' : 's'} y se borran las pendientes. Las demás semanas no se tocan.`
+    : `Solo afecta a <strong>${escapeHtml(weekLabel.toLowerCase())}</strong>. Las reservaciones de otras semanas no se tocan.`;
+
   const ledeText = isOpen
-    ? 'Todas las maestras podrán reservar sus espacios al mismo tiempo, sin turnos ni límite de tiempo. Al iniciar se borran todas las reservaciones actuales.'
-    : 'Elige el orden de turnos e inicia la ronda de reservaciones. Al iniciar se borran todas las reservaciones actuales.';
+    ? 'Todas las maestras podrán reservar sus espacios al mismo tiempo, sin turnos ni límite de tiempo.'
+    : 'Elige el orden de turnos e inicia la ronda de reservaciones.';
 
   const teacherBlockTitle = isOpen
     ? 'Maestras en el horario (registro libre simultáneo)'
@@ -238,13 +449,19 @@ function renderSetup() {
       ? 'Orden de turnos (usa ↑ ↓)'
       : 'Maestras en el horario (el servidor elegirá el orden)';
 
+  const closedNote = state.session && state.session.phase === 'closed'
+    ? `<p class="draft-lede">Esta semana ya tuvo un draft (cerrado). Sus reservaciones confirmadas siguen en el <strong>Historial</strong>.</p>`
+    : '';
+
   root.innerHTML = `
     <section class="draft-section">
       <h3 class="draft-section-title">${isOpen ? 'Iniciar registro abierto' : 'Iniciar draft semanal'}</h3>
       <p class="draft-lede">
         ${ledeText}
+        ${scopeText}
         Las maestras deben estar asignadas en el horario antes de comenzar (pestaña <strong>Editar horario</strong>).
       </p>
+      ${closedNote}
 
       ${hasTeachers ? '' : `
         <p class="draft-empty">No hay maestras asignadas a franjas del horario. Asigna maestras en <strong>Editar horario</strong> antes de iniciar.</p>
@@ -304,6 +521,7 @@ function renderLive() {
     <section class="draft-section">
       <div class="draft-live-header">
         <span class="badge badge--phase badge--phase-${session.phase} draft-phase-badge draft-phase-${session.phase}">${escapeHtml(phaseLabel)}</span>
+        <span class="draft-live-week">${escapeHtml(formatWeekStart(session.week_start))}</span>
         ${isLive ? `
           <div class="draft-countdown-panel">
             <div class="draft-countdown-wrap">
@@ -319,7 +537,7 @@ function renderLive() {
 
       <div class="draft-actions">
         ${isLive ? '<button type="button" class="btn btn-primary" id="draft-advance">Avanzar turno</button>' : ''}
-        <button type="button" class="btn btn-ghost" id="draft-reset">Reiniciar</button>
+        <button type="button" class="btn btn-ghost" id="draft-reset">Reiniciar esta semana</button>
       </div>
     </section>
   `;
@@ -372,6 +590,7 @@ function renderOpenSession() {
     <section class="draft-section">
       <div class="draft-live-header">
         <span class="badge badge--phase badge--phase-open draft-phase-badge draft-phase-open">Abierto</span>
+        <span class="draft-live-week">${escapeHtml(formatWeekStart(session.week_start))}</span>
       </div>
 
       <p class="draft-lede">
@@ -386,10 +605,101 @@ function renderOpenSession() {
       ${turnHistory}
 
       <div class="draft-actions">
-        <button type="button" class="btn btn-ghost" id="draft-reset">Reiniciar</button>
+        <button type="button" class="btn btn-ghost" id="draft-reset">Reiniciar esta semana</button>
       </div>
     </section>
   `;
+}
+
+function renderHistorial() {
+  const root = document.getElementById('draft-content');
+  if (!root) return;
+
+  clearCountdown();
+
+  if (!state.historyWeeks.length) {
+    root.innerHTML = `
+      <section class="draft-section">
+        <h3 class="draft-section-title">Historial</h3>
+        <p class="draft-empty">Todavía no hay semanas registradas.</p>
+      </section>
+    `;
+    return;
+  }
+
+  const weekRows = state.historyWeeks.map((w) => {
+    const relation = weekRelation(w.week_start);
+    const isOpenRow = state.historyOpenWeek === w.week_start;
+    const phaseLabel = w.phase ? (PHASE_LABELS[w.phase] || w.phase) : 'Sin sesión';
+
+    return `
+      <li class="draft-history-week${isOpenRow ? ' draft-history-week-open' : ''}">
+        <div class="draft-history-head">
+          <span class="draft-history-label">${escapeHtml(formatWeekStart(w.week_start))}</span>
+          <span class="badge draft-week-chip draft-week-chip-${relation}">${RELATION_LABELS[relation]}</span>
+          <span class="badge badge--phase draft-phase-badge draft-phase-${w.phase || 'closed'}">${escapeHtml(phaseLabel)}</span>
+          <span class="draft-history-count">${w.confirmed} confirmada${w.confirmed === 1 ? '' : 's'}</span>
+          <button type="button" class="btn btn-ghost draft-btn-sm" data-history-week="${w.week_start}">
+            ${isOpenRow ? 'Ocultar' : 'Ver asignaciones'}
+          </button>
+        </div>
+        ${isOpenRow ? renderHistoryDetail() : ''}
+      </li>
+    `;
+  }).join('');
+
+  root.innerHTML = `
+    <section class="draft-section">
+      <h3 class="draft-section-title">Historial por semana</h3>
+      <p class="draft-lede">Asignaciones confirmadas de cada semana. Solo lectura — para modificar una semana usa la pestaña <strong>Draft</strong>.</p>
+      <ul class="draft-history-list">${weekRows}</ul>
+    </section>
+  `;
+}
+
+function renderHistoryDetail() {
+  if (!state.historyRows.length) {
+    return '<p class="draft-empty">Sin asignaciones confirmadas en esta semana.</p>';
+  }
+
+  const byDay = WEEKDAYS.map((day) => {
+    const rows = state.historyRows.filter((r) => r.day === day);
+    if (!rows.length) return '';
+    const items = rows.map((r) => `
+      <li class="draft-history-row">
+        <span class="draft-history-time">${formatTime(r.start_time)}</span>
+        <span class="draft-history-grade">${escapeHtml(r.grade)}</span>
+        <span class="draft-history-class">${escapeHtml(r.class_name)}</span>
+        <span class="draft-history-teacher">${escapeHtml(r.teacher_name)}</span>
+        <span class="chip horario-view-space-chip">${escapeHtml(r.space_name)}</span>
+      </li>
+    `).join('');
+    return `
+      <div class="draft-history-day">
+        <h4 class="draft-subtitle">${WEEKDAY_LABELS[day]}</h4>
+        <ul class="draft-history-rows">${items}</ul>
+      </div>
+    `;
+  }).join('');
+
+  return `<div class="draft-history-detail">${byDay}</div>`;
+}
+
+function renderContent() {
+  renderViewTabs();
+  renderWeekBar();
+
+  if (state.view === 'historial') {
+    renderHistorial();
+    return;
+  }
+
+  if (state.session && state.session.phase !== 'closed') {
+    renderLive();
+    return;
+  }
+
+  renderSetup();
 }
 
 function startCountdown(turnEndsAt) {
@@ -426,6 +736,10 @@ function moveTeacher(id, direction) {
   renderSetup();
 }
 
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+
 async function handleIniciar() {
   hideAlert();
 
@@ -434,10 +748,15 @@ async function handleIniciar() {
     return;
   }
 
+  const weekLabel = formatWeekStart(state.weekStart).toLowerCase();
+  const scope = state.weekHasSession
+    ? `Se conservarán las reservaciones confirmadas de esa semana y se borrarán las pendientes.`
+    : `No se tocarán las reservaciones de otras semanas.`;
+
   if (!confirm(
     state.orderMode === 'open'
-      ? '¿Iniciar registro abierto? Todas las maestras podrán reservar al mismo tiempo. Esto borrará todas las reservaciones actuales.'
-      : '¿Iniciar el draft? Esto borrará todas las reservaciones actuales y comenzará una ronda nueva.'
+      ? `¿Iniciar registro abierto para la ${weekLabel}? Todas las maestras podrán reservar al mismo tiempo. ${scope}`
+      : `¿Iniciar el draft para la ${weekLabel}? ${scope}`
   )) {
     return;
   }
@@ -446,7 +765,10 @@ async function handleIniciar() {
   if (btn) btn.disabled = true;
 
   try {
-    const payload = { p_order_mode: state.orderMode };
+    const payload = {
+      p_week_start: state.weekStart,
+      p_order_mode: state.orderMode,
+    };
     if (state.orderMode === 'ordenado') {
       payload.p_ordered_ids = state.orderedTeacherIds;
     }
@@ -467,7 +789,11 @@ async function handleAdvance() {
   }
 
   try {
-    const { error } = await supabase.rpc('advance_turn');
+    // Target the session this panel is showing: a draft prepared for another
+    // week can also be non-closed, and the no-arg form would advance that one.
+    const { error } = await supabase.rpc('advance_turn', {
+      p_session_id: state.session?.id ?? null,
+    });
     if (error) throw error;
     await refreshDraft();
   } catch (err) {
@@ -477,12 +803,13 @@ async function handleAdvance() {
 
 async function handleReset() {
   hideAlert();
-  if (!confirm('¿Reiniciar por completo? Se borrarán todas las reservaciones y se cerrará la sesión actual.')) {
+  const weekLabel = formatWeekStart(state.weekStart).toLowerCase();
+  if (!confirm(`¿Reiniciar la ${weekLabel}? Se borrarán TODAS sus reservaciones (incluidas las confirmadas) y se cerrará su sesión. Las demás semanas no se tocan.`)) {
     return;
   }
 
   try {
-    const { error } = await supabase.rpc('reset_draft');
+    const { error } = await supabase.rpc('reset_draft', { p_week_start: state.weekStart });
     if (error) throw error;
     await refreshDraft();
   } catch (err) {
@@ -490,22 +817,52 @@ async function handleReset() {
   }
 }
 
+function setWeek(weekStartIso) {
+  const monday = toIsoDate(mondayOf(fromIsoDate(weekStartIso)));
+  if (monday === state.weekStart) {
+    // Typing any day of the already-selected week: snap the input back to Monday.
+    renderWeekBar();
+    return;
+  }
+  state.weekStart = monday;
+  hideAlert();
+  refreshDraft().catch((err) => {
+    showAlert(err.message || 'No se pudo cargar la semana.');
+  });
+}
+
+async function setView(view) {
+  if (state.view === view) return;
+  state.view = view;
+  hideAlert();
+  clearCountdown();
+  if (view === 'historial') {
+    await refreshHistorial();
+  } else {
+    await refreshDraft();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Refresh
+// ---------------------------------------------------------------------------
+
 async function refreshDraft() {
-  state.session = await fetchSession();
+  state.session = await fetchSession(state.weekStart);
+  state.weekHasSession = Boolean(state.session);
+  state.weekConfirmedCount = await fetchWeekConfirmedCount(state.weekStart);
+  state.assignedTeachers = await fetchAssignedTeachers();
 
   if (state.session) {
     state.turns = await fetchTurns(state.session.id);
     state.reservations = await fetchReservations(state.session.id);
-    state.assignedTeachers = await fetchAssignedTeachers();
-    await loadTeacherNames();
-    renderLive();
-    return;
+  } else {
+    state.turns = [];
+    state.reservations = [];
   }
 
-  state.turns = [];
-  state.reservations = [];
-  state.assignedTeachers = await fetchAssignedTeachers();
   await loadTeacherNames();
+
   if (!state.orderedTeacherIds.length ||
     state.orderedTeacherIds.length !== state.assignedTeachers.length) {
     state.orderedTeacherIds = state.assignedTeachers.map((t) => t.id);
@@ -518,13 +875,32 @@ async function refreshDraft() {
       }
     }
   }
-  renderSetup();
+
+  renderContent();
+}
+
+async function refreshHistorial() {
+  state.historyWeeks = await fetchHistoryWeeks();
+  if (state.historyOpenWeek) {
+    state.historyRows = await fetchHistoryRows(state.historyOpenWeek);
+  } else {
+    state.historyRows = [];
+  }
+  renderContent();
+}
+
+async function refreshCurrentView() {
+  if (state.view === 'historial') {
+    await refreshHistorial();
+    return;
+  }
+  await refreshDraft();
 }
 
 function onRealtimeChange() {
   if (state.debounceTimer) clearTimeout(state.debounceTimer);
   state.debounceTimer = setTimeout(() => {
-    refreshDraft().catch((err) => {
+    refreshCurrentView().catch((err) => {
       showAlert(err.message || 'No se pudo actualizar el draft.');
     });
   }, 150);
@@ -554,7 +930,49 @@ function subscribeDraft() {
 }
 
 function wireEvents(panel) {
+  panel.addEventListener('change', (e) => {
+    if (e.target.id !== 'draft-week-input') return;
+    if (!e.target.value) return;
+    setWeek(e.target.value);
+  });
+
   panel.addEventListener('click', (e) => {
+    const viewBtn = e.target.closest('[data-view]');
+    if (viewBtn) {
+      hideAlert();
+      setView(viewBtn.dataset.view).catch((err) => {
+        showAlert(err.message || 'No se pudo cambiar de vista.');
+      });
+      return;
+    }
+
+    if (e.target.closest('#draft-week-prev')) {
+      setWeek(addWeeks(state.weekStart, -1));
+      return;
+    }
+
+    if (e.target.closest('#draft-week-next')) {
+      setWeek(addWeeks(state.weekStart, 1));
+      return;
+    }
+
+    const jumpBtn = e.target.closest('[data-week-jump]');
+    if (jumpBtn) {
+      setWeek(jumpBtn.dataset.weekJump === 'current' ? currentWeekStart() : upcomingWeekStart());
+      return;
+    }
+
+    const historyBtn = e.target.closest('[data-history-week]');
+    if (historyBtn) {
+      hideAlert();
+      const week = historyBtn.dataset.historyWeek;
+      state.historyOpenWeek = state.historyOpenWeek === week ? null : week;
+      refreshHistorial().catch((err) => {
+        showAlert(err.message || 'No se pudo cargar el historial.');
+      });
+      return;
+    }
+
     const modeBtn = e.target.closest('[data-order-mode]');
     if (modeBtn) {
       hideAlert();
@@ -602,12 +1020,19 @@ export async function mountReservacionesSemanales(profile) {
   if (!panel) return;
 
   state.profile = profile;
+  state.weekStart = upcomingWeekStart();
+  state.view = 'draft';
   state.session = null;
+  state.weekHasSession = false;
   state.turns = [];
   state.reservations = [];
+  state.weekConfirmedCount = 0;
   state.assignedTeachers = [];
   state.orderMode = 'random';
   state.orderedTeacherIds = [];
+  state.historyWeeks = [];
+  state.historyOpenWeek = null;
+  state.historyRows = [];
   state.panel = panel;
 
   panel.innerHTML = buildPanelShell();

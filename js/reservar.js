@@ -3,7 +3,7 @@ import { requireAuth, getProfile, signOut } from './auth.js';
 const TABS_BY_ROLE = {
   student: ['Horario', 'Espacios de estudio'],
   teacher: ['Horario', 'Reservar mi espacio', 'Espacios de estudio', 'Mi perfil'],
-  admin: ['Horario', 'Editar horario', 'Reservaciones semanales', 'Usuarios', 'Espacios de estudio'],
+  admin: ['Horario', 'Horario general', 'Editar horario', 'Reservaciones semanales', 'Usuarios', 'Espacios de estudio'],
 };
 
 const ROLE_LABELS = {
@@ -87,6 +87,8 @@ async function init() {
   }
 
   if (profile.role === 'admin') {
+    const { mountHorarioGeneral } = await import('./admin-horario-general.js');
+    await mountHorarioGeneral(profile);
     const { mountEditarHorario } = await import('./admin-horario.js');
     await mountEditarHorario(profile);
     const { mountUsuarios } = await import('./admin-usuarios.js');
