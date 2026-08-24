@@ -108,7 +108,7 @@ async function fetchTeachingSpaces() {
 async function fetchStudySpaces() {
   const { data, error } = await supabase
     .from('study_spaces')
-    .select('id, name, space_id, active, created_at')
+    .select('id, name, space_id, active, requires_approval, created_at')
     .order('name');
   if (error) throw error;
   return data ?? [];
@@ -161,6 +161,11 @@ function buildPanelShell() {
 
     <section class="study-admin-section">
       <h3 class="study-admin-section-title">Crear espacio de estudio</h3>
+      <p class="study-admin-help">
+        <strong>Activo</strong> = visible para las alumnas.
+        <strong>Aprobación automática</strong> = las solicitudes se aprueban al instante;
+        <strong>requiere aprobación</strong> = entran a la lista de pendientes.
+      </p>
       <form id="study-admin-create-form" class="study-admin-create-form">
         <div class="form-group study-admin-field">
           <label for="study-admin-name">Nombre</label>
@@ -213,17 +218,26 @@ function renderSpacesList() {
   }
 
   root.innerHTML = state.studySpaces.map((space) => {
-    const linked = space.space_id
+    const linkedName = space.space_id
       ? teachingSpaceNameById(space.space_id) || `Sala #${space.space_id}`
-      : 'Independiente';
+      : null;
+    // Unlinked spaces show no "Misma sala" line at all — "Independiente" as a
+    // value read like a room name and confused admins.
+    const linkedLine = linkedName
+      ? `<span class="study-admin-space-meta">Misma sala: ${escapeHtml(linkedName)}</span>`
+      : '';
     const activeLabel = space.active ? 'Activo' : 'Inactivo';
     const activeClass = space.active ? 'study-admin-badge-active' : 'study-admin-badge-inactive';
+    const approvalChip = space.requires_approval === false
+      ? '<span class="chip study-admin-approval-chip study-admin-approval-chip--auto">Aprobación automática</span>'
+      : '<span class="chip chip--muted study-admin-approval-chip">Requiere aprobación</span>';
 
     return `
       <article class="study-admin-space-row" data-space-id="${space.id}">
         <div class="study-admin-space-main">
           <strong class="study-admin-space-name">${escapeHtml(space.name)}</strong>
-          <span class="study-admin-space-meta">Misma sala: ${escapeHtml(linked)}</span>
+          ${linkedLine}
+          ${approvalChip}
           <span class="badge badge--${space.active ? 'active' : 'inactive'} study-admin-badge ${activeClass}">${activeLabel}</span>
         </div>
         <div class="study-admin-space-actions">

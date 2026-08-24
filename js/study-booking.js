@@ -81,7 +81,9 @@ function linkedRoomName(space) {
 function spaceSelectLabel(space) {
   const linked = linkedRoomName(space);
   const suffix = linked ? ` (misma sala: ${linked})` : '';
-  return `${space.name}${suffix}`;
+  // requires_approval = false → the booking is approved on the spot.
+  const auto = space.requires_approval === false ? ' · sin aprobación' : '';
+  return `${space.name}${suffix}${auto}`;
 }
 
 function endTimeFromStart(start, durationMin) {
@@ -128,11 +130,18 @@ function getFormSelection() {
 async function fetchActiveStudySpaces() {
   const { data, error } = await supabase
     .from('study_spaces')
-    .select('id, name, space_id, spaces(name)')
+    .select('id, name, space_id, requires_approval, spaces(name)')
     .eq('active', true)
     .order('name');
   if (error) throw error;
-  return data ?? [];
+  const spaces = data ?? [];
+  // Room-restricted account: only study spaces linked to the assigned room.
+  // Cosmetic filter — request_study_booking enforces the same rule server-side.
+  const only = state.profile?.only_space_id;
+  if (only != null) {
+    return spaces.filter((s) => s.space_id === only);
+  }
+  return spaces;
 }
 
 async function fetchOwnBookings() {
@@ -179,6 +188,7 @@ function buildPanelShell() {
     <section class="study-book-section app-form-section">
       <h3 class="study-book-section-title">Solicitar espacio</h3>
       <form id="study-book-form" class="study-book-form app-form-card">
+        <p class="study-book-capacity-note">Los espacios con mayor capacidad requieren un mínimo de 8 alumnas para poder reservarlo.</p>
         <div class="form-group study-book-field">
           <label for="study-book-space">Espacio</label>
           <select class="input" id="study-book-space" required>

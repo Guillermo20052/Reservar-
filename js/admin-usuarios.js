@@ -8,10 +8,11 @@ const ROLE_LABELS = {
   admin: 'Administradora',
 };
 
-/** @type {{ profile: object, users: object[] }} */
+/** @type {{ profile: object, users: object[], spaces: object[] }} */
 const state = {
   profile: null,
   users: [],
+  spaces: [],
 };
 
 function escapeHtml(text) {
@@ -41,8 +42,17 @@ function hideAlert() {
 async function fetchUsers() {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, full_name, role, teacher_code')
+    .select('id, full_name, role, teacher_code, only_space_id')
     .order('full_name');
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function fetchSpaces() {
+  const { data, error } = await supabase
+    .from('spaces')
+    .select('id, name, sort_order')
+    .order('sort_order');
   if (error) throw error;
   return data ?? [];
 }
@@ -65,6 +75,16 @@ function renderRoleOptions(user) {
     const disabled = isSelf && role !== 'admin' ? ' disabled' : '';
     return `<option value="${role}"${selected}${disabled}>${ROLE_LABELS[role]}</option>`;
   }).join('');
+}
+
+function renderSpaceOptions(user) {
+  const current = user.only_space_id;
+  return [
+    `<option value=""${current == null ? ' selected' : ''}>— Sin restricción —</option>`,
+    ...state.spaces.map((sp) =>
+      `<option value="${sp.id}"${current === sp.id ? ' selected' : ''}>${escapeHtml(sp.name)}</option>`
+    ),
+  ].join('');
 }
 
 function renderUserList() {
@@ -97,6 +117,10 @@ function renderUserList() {
           <select class="input usuarios-role-select" id="usuarios-role-${user.id}" data-user-id="${user.id}" data-current-role="${user.role}"${isSelf ? ' title="No puedes quitarte el rol de administradora desde aquí"' : ''}>
             ${renderRoleOptions(user)}
           </select>
+          <label class="usuarios-role-label" for="usuarios-space-${user.id}">Restringir a espacio</label>
+          <select class="input usuarios-space-select" id="usuarios-space-${user.id}" data-space-user-id="${user.id}" data-current-space="${user.only_space_id ?? ''}" title="Si se asigna, esta cuenta solo podrá reservar espacios de estudio de esa sala">
+            ${renderSpaceOptions(user)}
+          </select>
           ${isSelf ? '' : `<button type="button" class="usuarios-delete-btn" data-user-id="${user.id}"${user.role === 'admin' ? ' disabled title="No se puede eliminar a otra administradora"' : ''}>Eliminar</button>`}
         </div>
       </article>
@@ -105,7 +129,7 @@ function renderUserList() {
 }
 
 async function refreshAll() {
-  state.users = await fetchUsers();
+  [state.users, state.spaces] = await Promise.all([fetchUsers(), fetchSpaces()]);
   renderUserList();
 }
 
@@ -189,8 +213,58 @@ async function handleDeleteUser(button) {
   }
 }
 
+async function handleSpaceChange(select) {
+  const userId = select.dataset.spaceUserId;
+  const oldVal = select.dataset.currentSpace;
+  const newVal = select.value;
+
+  if (newVal === oldVal) return;
+
+  hideAlert();
+
+  const user = state.users.find((u) => u.id === userId);
+  const displayName = user?.full_name?.trim() || 'Sin nombre';
+  const spaceName = newVal
+    ? state.spaces.find((sp) => String(sp.id) === newVal)?.name || `Sala #${newVal}`
+    : null;
+
+  const msg = spaceName
+    ? `¿Restringir a «${displayName}» al espacio ${spaceName}? Solo podrá reservar espacios de estudio de esa sala.`
+    : `¿Quitar la restricción de espacio de «${displayName}»?`;
+
+  if (!confirm(msg)) {
+    select.value = oldVal;
+    return;
+  }
+
+  select.disabled = true;
+
+  try {
+    // Server-side write path: admin_set_user_space verifies is_admin() and the
+    // RLS pin blocks any direct profiles UPDATE of only_space_id.
+    const { error } = await supabase.rpc('admin_set_user_space', {
+      p_user_id: userId,
+      p_space_id: newVal ? Number(newVal) : null,
+    });
+    if (error) throw error;
+    await refreshAll();
+  } catch (err) {
+    select.value = oldVal;
+    select.disabled = false;
+    showAlert(err.message || 'No se pudo actualizar la restricción de espacio.');
+    return;
+  }
+
+  select.disabled = false;
+}
+
 function wireEvents(panel) {
   panel.addEventListener('change', (e) => {
+    const spaceSelect = e.target.closest('.usuarios-space-select');
+    if (spaceSelect) {
+      handleSpaceChange(spaceSelect);
+      return;
+    }
     const select = e.target.closest('.usuarios-role-select');
     if (!select) return;
     handleRoleChange(select);
@@ -211,6 +285,7 @@ export async function mountUsuarios(profile) {
 
   state.profile = profile;
   state.users = [];
+  state.spaces = [];
 
   panel.innerHTML = buildPanelShell();
   wireEvents(panel);
