@@ -63,6 +63,11 @@ body{font-family:var(--body);color:var(--ink);background:var(--paper);line-heigh
 .chipnav-inner::-webkit-scrollbar{display:none}
 .chipnav a{flex:0 0 auto;color:#FFD3CD;text-decoration:none;font-size:.82rem;font-weight:600;padding:11px 13px;border-bottom:3px solid transparent;white-space:nowrap;letter-spacing:.02em}
 .chipnav a:hover{color:var(--white)}
+/* ---------- Volver a la guía ---------- */
+.volver-guia{max-width:1200px;margin:0 auto;padding:16px 20px 0}
+.volver-guia a{display:inline-flex;align-items:center;gap:6px;color:var(--redwood-deep);text-decoration:none;font-family:var(--display);font-size:.9rem;font-weight:600;letter-spacing:.01em}
+.volver-guia a:hover{text-decoration:underline}
+@media print{.volver-guia{display:none!important}}
 .chipnav a.active{color:var(--white);border-bottom-color:var(--redwood)}
 
 /* ---------- Hero ---------- */
@@ -582,6 +587,8 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
   </div>
 </nav>
 
+<div class="volver-guia"><a href="/">← Volver a la guía</a></div>
+
 <div class="hero">
   <div class="hero-inner">
     <div class="eyebrow">Liceo de Monterrey · Redwood</div>
@@ -642,6 +649,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <li>Los primeros y principales educadores son los padres de familia. El colegio es su aliado más cercano.</li>
         <li>El desarrollo de las virtudes humanas es la base del crecimiento personal de cada alumno.</li>
         <li>Cada alumno es único, libre y llamado a dar lo mejor de sí mismo en todas sus dimensiones.</li>
+        <li>La educación personalizada es el enfoque que garantiza a cada alumna el acceso equitativo a oportunidades de aprendizaje y participación, respondiendo con empatía a la diversidad de sus ritmos y estilos de trabajo.</li>
         <li>El compromiso activo de las familias es indispensable e irremplazable para el éxito del proceso formativo.</li>
         <li>La normativa existe para ayudar a cada alumno a vivir en armonía, ejercer sus derechos y cumplir sus responsabilidades.</li>
       </ul>
@@ -678,6 +686,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <li>Participar en retos o desafíos virales que pongan en riesgo la integridad física o el orden escolar.</li>
         <li>Abandonar las instalaciones del colegio sin autorización. Una vez dentro, el alumno tiene prohibido salir hasta que sus padres o persona autorizada vengan por él.</li>
       </ul>
+      <div class="nota"><span class="n-ico">■</span><span>En casos de acoso escolar (bullying) se sigue el protocolo de prevención correspondiente y, de acuerdo al programa Olweus, el Consejo Directivo impondrá las sanciones y dará seguimiento del caso. Este procedimiento tiene como prioridad absoluta garantizar la protección de la alumna afectada, asegurar la confidencialidad de las partes y evitar en todo momento la revictimización.</span></div>
       <div class="nota"><span class="n-ico">■</span><span>Las sanciones aplican también por acciones cometidas fuera del colegio durante actividades organizadas por la institución. Los padres son civilmente responsables por los actos de sus hijos.</span></div>
     </div>
   </article>
@@ -689,13 +698,13 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
       <div class="tbl-scroll"><table>
         <thead><tr><th>¿Con quién?</th><th>Canal</th><th>Tiempo de respuesta</th></tr></thead>
         <tbody>
-          <tr><td>Maestras</td><td>Correo institucional o plataforma Toddle.</td><td>24 horas hábiles.</td></tr>
+          <tr><td>Maestros</td><td>Correo institucional o plataforma Toddle.</td><td>24 horas hábiles.</td></tr>
           <tr><td>Preceptoras</td><td>Correo institucional o chat 1:1 de la App Liceo. Lunes a viernes 7:45 a.m. – 2:15 p.m.</td><td>24 horas hábiles.</td></tr>
           <tr><td>Emergencias</td><td>Asistente del departamento (llamada o WhatsApp).</td><td>Inmediato.</td></tr>
         </tbody>
       </table></div>
       <ul>
-        <li>La comunicación entre maestras y alumnas se realiza a través de la plataforma Toddle o por correo institucional.</li>
+        <li>La comunicación entre maestros y alumnas se realiza a través de la plataforma Toddle o por correo institucional.</li>
         <li>Los asuntos académicos o disciplinarios se abordarán de manera formal mediante una cita, evitando hacerlo en la entrada o pasillos.</li>
       </ul>
     </div>
@@ -718,8 +727,8 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
     <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none"><rect x="7" y="2" width="10" height="20" rx="2" stroke="currentColor" stroke-width="2"/><path d="M4 8 20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>Política de uso de dispositivos electrónicos</h3>
     <div class="tema-body">
       <h4>Nuestro objetivo</h4>
-      <p>En Kinder, Elementary y Junior High buscamos crear un ambiente que favorezca la atención, la convivencia, el desarrollo de habilidades sociales y el crecimiento interior de nuestras alumnas.</p>
-      <p>Diversos estudios muestran que retrasar el acceso a teléfonos inteligentes y redes sociales favorece el desarrollo emocional, social y académico de los adolescentes. Recomendamos a las familias aplazar la entrega de un smartphone a sus hijas. Aunque la decisión corresponde a cada familia, sugerimos considerar el uso de teléfono inteligente a partir de 8.º grado y posponer el acceso a redes sociales hasta los 16 años.</p>
+      <p>En Kinder, Elementary y Junior High buscamos crear un ambiente que favorezca la atención, la convivencia, el desarrollo de habilidades sociales y el crecimiento interior de nuestros alumnos.</p>
+      <p>Diversos estudios muestran que retrasar el acceso a teléfonos inteligentes y redes sociales favorece el desarrollo emocional, social y académico de los adolescentes. Recomendamos a las familias aplazar la entrega de un smartphone a sus hijos. Aunque la decisión corresponde a cada familia, sugerimos considerar el uso de teléfono inteligente a partir de 8.º grado y posponer el acceso a redes sociales hasta los 16 años.</p>
       <h4>Lineamientos</h4>
       <p>Durante toda la jornada escolar queda prohibido el uso de:</p>
       <ul>
@@ -729,8 +738,8 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <li>Redes sociales y aplicaciones de mensajería.</li>
         <li>Cualquier dispositivo electrónico de uso personal que interfiera con el ambiente educativo.</li>
       </ul>
-      <p>Los dispositivos que las alumnas necesiten traer al colegio deberán permanecer apagados y guardados dentro de su mochila durante toda la jornada.</p>
-      <div class="nota"><span class="n-ico">■</span><span><strong>IMPORTANTE:</strong> si el dispositivo se utiliza para grabar, fotografiar o difundir contenido de otra alumna sin autorización, la falta se considera grave y pasa directamente a Dirección, sin importar si es la primera vez.</span></div>
+      <p>Al inicio de la jornada escolar, los dispositivos que los alumnos necesiten traer al colegio deberán entregarse o colocarse en el espacio de resguardo designado por el colegio, donde permanecerán durante toda la jornada.</p>
+      <div class="nota"><span class="n-ico">■</span><span><strong>IMPORTANTE:</strong> si el dispositivo se utiliza para grabar, fotografiar o difundir contenido de otro alumno o maestro sin autorización, la falta se considera grave y pasa directamente a Dirección, sin importar si es la primera vez.</span></div>
       <div class="nota"><span class="n-ico">■</span><span>El colegio se deslinda de toda responsabilidad sobre dispositivos electrónicos o cualquier objeto personal no solicitado para el desarrollo de las actividades académicas.</span></div>
     </div>
   </article>
@@ -766,11 +775,12 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <li><strong>I Lead:</strong> Grupo de mamás de la comunidad Redwood que coordina iniciativas sociales y proyectos solidarios dentro del colegio.</li>
         <li><strong>We Hear You:</strong> Canal oficial para que las familias compartan, con un tono respetuoso, sugerencias o comentarios al colegio de manera formal.</li>
         <li><strong>LAS-Sports:</strong> Coordinación de Liceo After School y deportiva del Liceo Redwood.</li>
-        <li><strong>R&amp;R:</strong> React and Reflect - Herramienta de reflexión que se aplica cuando una alumna tiene una conducta inadecuada. Consiste en tres pasos: describir lo ocurrido, reflexionar sobre el impacto en los demás y escribir un compromiso concreto para no reincidir.</li>
+        <li><strong>R&amp;R:</strong> React and Reflect - Herramienta de reflexión de Junior High que se aplica cuando un alumno tiene una conducta inadecuada. Consiste en tres pasos: describir lo ocurrido, reflexionar sobre el impacto en los demás y escribir un compromiso concreto para no reincidir.</li>
         <li><strong>School CARE:</strong> Community and Respect Enforcement - Persona encargada de acompañar a las alumnas de Junior High en el cumplimiento de las normas de convivencia y su formación personal.</li>
+        <li><strong>WellNEST:</strong> Espacio de bienestar del colegio que coordina esfuerzos psicopedagógicos y socioemocionales de forma preventiva, para favorecer los procesos de aprendizaje, los hábitos de estudio, la autorregulación y la convivencia armónica de cada alumna.</li>
         <li><strong>Nemax:</strong> Plataforma para pagos, calificaciones, estados de cuenta e inscripciones deportivas.</li>
         <li><strong>Toddle:</strong> Plataforma de comunicación académica entre maestras y alumnas.</li>
-        <li><strong>App Liceo:</strong> Aplicación oficial del colegio para avisos, circulares, retiro de alumnas, fotografías, justificación de faltas, permisos y comunicación con las familias de parte del colegio y con sus preceptoras.</li>
+        <li><strong>App Liceo:</strong> Aplicación oficial del colegio para avisos, circulares, retiro de alumnos, fotografías, justificación de faltas, permisos y comunicación con las familias de parte del colegio y con sus preceptoras.</li>
       </ul>
     </div>
   </article>
@@ -917,7 +927,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <thead><tr><th>Tipo</th><th>Motivo</th><th>Repone actividades</th></tr></thead>
         <tbody>
           <tr><td>Justificada (no contabilizada)</td><td>Enfermedad con hospitalización, duelo, viaje escolar, evento deportivo de alto rendimiento.</td><td>Opcional, bajo criterio de importancia.</td></tr>
-          <tr><td>Justificada (sí contabilizada)</td><td>Enfermedad sin hospitalización (avisando a la preceptora por medios oficiales el día de la falta). Viaje familiar aprobado previamente por Dirección (máximo de 15 días).</td><td>Sí. Los días que falte son los días que tiene para reponer.</td></tr>
+          <tr><td>Justificada (sí contabilizada)</td><td>Enfermedad que no implique hospitalización, o alguna situación revisada y aprobada por la directora de sección (viaje familiar, trámite de pasaporte o visa, etc.), enviando justificante o notificación por escrito a la preceptora.</td><td>Sí. Dos días después de su regreso o en el plazo indicado por la dirección.</td></tr>
           <tr><td>Injustificada</td><td>Sin aviso ni justificante válido. Viajes recreativos sin relación con el colegio. Viajes de amigas, incluyendo mamá e hija.</td><td>No — calificación 0.</td></tr>
         </tbody>
       </table></div>
@@ -932,7 +942,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <thead><tr><th>Grado</th><th>Uniforme Académico</th><th>Uniforme Deportivo</th></tr></thead>
         <tbody>
           <tr><td>1.º – 3.º</td><td>Jumper oficial con logotipo actualizado, blusa blanca, calcetas largas blancas, zapato negro con traba.</td><td>Falda o pants, chaquetín y blusa deportiva con logotipo actualizado, calceta blanca corta, tenis preferentemente blancos.</td></tr>
-          <tr><td>4.º – 6.º</td><td>Chaleco y suéter con logotipo actualizado, blusa blanca, falda de cuadros, calcetas largas blancas, zapato negro mocasín.</td><td>Igual al anterior.</td></tr>
+          <tr><td>4.º – 6.º</td><td>Chaleco y suéter con logotipo actualizado, blusa blanca, falda de cuadros, calcetas largas blancas, zapato negro tipo mocasín.</td><td>Igual al anterior.</td></tr>
         </tbody>
       </table></div>
       <ul>
@@ -947,7 +957,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <tbody>
           <tr>
             <td class="chk">Pantalón de vestir, casual o mezclilla en buen estado con largo abajo de la rodilla; vestidos o faldas máximo dos dedos arriba de la rodilla; blusas con manga (corta o larga) que cubran hombro y abdomen; calzado tipo tenis, zapato o sandalia en buen estado.</td>
-            <td class="nochk">Shorts cortos, ropa rota o quemada, escotes pronunciados, blusas de tirantes o sin manga, crop tops, leggins con blusa corta, ropa de playa, pijamas, chanclas, crocs, pantuflas, gorras, paliacates, boinas, sombreros, chales o cobijas, peinados exóticos o tintes de fantasía, piercings en rostro o expansores en lóbulo.</td>
+            <td class="nochk">Shorts cortos, ropa rota o quemada, escotes pronunciados, blusas de tirantes o sin manga que no cubran los hombros, crop tops, leggins con blusa corta, ropa de playa, pijamas, chanclas, crocs, pantuflas, gorras, paliacates, boinas, sombreros, chales o cobijas, peinados exóticos o tintes de fantasía, piercings en rostro o expansores en lóbulo.</td>
           </tr>
         </tbody>
       </table></div>
@@ -961,7 +971,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
       <h4>Tareas:</h4>
       <ul>
         <li>Se entregan antes de las 7:55 a.m. del día correspondiente.</li>
-        <li>1.º Elementary: tarea tardía → calificación sobre 80 al día siguiente; sobre 60 un día más. Puede entregarse hasta antes de semana de exámenes.</li>
+        <li>1.º Elementary: tarea tardía → calificación sobre 80 al día siguiente; sobre 60 un día más. Puede entregarse hasta dos días antes de que empiece la semana de exámenes.</li>
         <li>2.º a 6.º: segunda oportunidad al día siguiente, calificada sobre 70. Después: 0 (NE en NEMAX).</li>
         <li>No hay tareas en fines de semana ni días de asueto.</li>
         <li>Los padres no pueden llevar material, libros ni tareas olvidadas. Aprender de las consecuencias es parte del proceso formativo.</li>
@@ -1005,13 +1015,14 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
   <article class="tema" id="e-dispositivos">
     <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none"><rect x="7" y="2" width="10" height="20" rx="2" stroke="currentColor" stroke-width="2"/><path d="M4 8 20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>Política de uso de dispositivos electrónicos</h3>
     <div class="tema-body">
+      <p>Al inicio de la jornada escolar, las alumnas deberán colocar sus dispositivos electrónicos en el espacio de resguardo destinado para ello (caja o almacenamiento), donde permanecerán durante la jornada.</p>
       <h4>Consecuencias por incumplimiento</h4>
       <div class="tbl-scroll"><table>
         <thead><tr><th>Ocasión</th><th>Consecuencia</th></tr></thead>
         <tbody>
-          <tr><td>Primera</td><td>El dispositivo será resguardado en la Dirección de Sección, devuelto a la alumna al finalizar la jornada y los padres serán notificados.</td></tr>
-          <tr><td>Segunda</td><td>El dispositivo será resguardado en la Dirección de Sección y únicamente entregado a la madre, padre o tutor, al tercer día.</td></tr>
-          <tr><td>Tercera</td><td>El dispositivo será resguardado en Dirección General durante una semana. Al término, deberá ser recogido personalmente por la madre, padre o tutor.</td></tr>
+          <tr><td>Primera</td><td>El dispositivo será resguardado en la Dirección de Sección y se entregará al final de la jornada escolar a la alumna. La alumna recibirá un aviso interno de disciplina y los padres de familia serán notificados de la situación.</td></tr>
+          <tr><td>Segunda</td><td>El dispositivo será resguardado en la Dirección de Sección y únicamente será entregado a la madre, padre o tutor de la alumna, al final de la jornada escolar. La alumna recibirá un aviso interno de disciplina.</td></tr>
+          <tr><td>Tercera</td><td>El dispositivo será resguardado en la Dirección General y únicamente será entregado a la madre, padre o tutor de la alumna, al finalizar la jornada escolar. La alumna recibirá un aviso interno de disciplina.</td></tr>
         </tbody>
       </table></div>
     </div>
@@ -1031,9 +1042,10 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
     <div class="tema-body">
       <p><strong>Entrada:</strong> 7:45 a.m. — la alumna debe estar en su salón a esta hora.<br><strong>Salida:</strong> 2:15 p.m.</p>
       <ul>
-        <li>De 7:45 a 8:00 a.m.: es un retardo que afecta la calificación de puntualidad.</li>
+        <li>Para la primera clase del día, la alumna que llegue al salón después de las 8:00 a.m. tendrá retardo, y el trabajo en clase correspondiente se calificará con 0.</li>
         <li>Retardos en clases subsecuentes: afectan la calificación de participación de la materia.</li>
-        <li>Tres retardos acumulados es igual a una falta en la materia correspondiente.</li>
+        <li>Tres retardos es una falta injustificada.</li>
+        <li>Tres faltas injustificadas al trimestre: el examen del trimestre se califica sobre 70.</li>
         <li>El límite de faltas por materia será una más que sus frecuencias semanales; al excederlo, la alumna deberá presentar examen extraordinario con costo.</li>
         <li>La ausencia injustificada a una clase, encontrándose la alumna dentro del colegio, dará como resultado la calificación de cero en las actividades y evaluaciones correspondientes a ese periodo.</li>
         <li>Las salidas anticipadas deberán solicitarse antes de las 11:00 a.m. con la Asistente de Sección o la Preceptora. Salvo casos extraordinarios, las alumnas podrán retirarse a partir de las 12:30 p.m. y únicamente por una causa justificada. Se autorizarán como máximo dos salidas anticipadas por trimestre.</li>
@@ -1049,7 +1061,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <thead><tr><th>Tipo</th><th>Motivo</th><th>Repone actividades</th></tr></thead>
         <tbody>
           <tr><td>Justificada (no contabilizada)</td><td>Enfermedad con hospitalización, duelo, viaje escolar, evento deportivo de alto rendimiento.</td><td>Opcional, bajo criterio de importancia.</td></tr>
-          <tr><td>Justificada (sí contabilizada)</td><td>Enfermedad sin hospitalización (avisando a la preceptora por medios oficiales el día de la falta). Viaje familiar aprobado previamente por Dirección (máximo de 15 días).</td><td>Sí. Los días que falte son los días que tiene para reponer.</td></tr>
+          <tr><td>Justificada (sí contabilizada)</td><td>Ausencias por motivos personales o viajes familiares, no relacionados con el colegio (enviando justificante médico o notificación oficial por medio del app con la preceptora o la asistente de sección).</td><td>Sí, en el plazo señalado por Dirección. Si no entrega las actividades, se califican con cero.</td></tr>
           <tr><td>Injustificada</td><td>Sin aviso ni justificante válido. Viajes recreativos sin relación con el colegio. Viajes de amigas, incluyendo mamá e hija.</td><td>No — calificación 0.</td></tr>
         </tbody>
       </table></div>
@@ -1081,7 +1093,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
     <div class="tema-body">
       <h4>Tareas:</h4>
       <ul>
-        <li>Las tareas entregadas después de las 8:00 a.m. se califican sobre 70 hasta el día siguiente; posteriormente recibirán 0 (NE).</li>
+        <li>En caso de no entregar la tarea oportunamente, será calificada con cero y se perderá la oportunidad de recuperar esa calificación.</li>
         <li>No hay tareas en fines de semana ni días de asueto.</li>
         <li>Las alumnas son responsables de revisar la plataforma digital y mantenerse al día con cualquier actividad pendiente.</li>
       </ul>
@@ -1094,7 +1106,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
       </table></div>
       <ul>
         <li>Si el promedio final es menor de 70, el colegio se reserva el derecho de inscripción para el siguiente ciclo.</li>
-        <li>En caso de reprobar más de 3 materias en un semestre, el caso se turna al Consejo Directivo.</li>
+        <li>Promedio anual menor de 60 en hasta 4 asignaturas oficiales → examen extraordinario (con costo) y acciones remediales indicadas por el colegio. Con promedio anual menor de 60 en 5 o más asignaturas oficiales, se reprueba el año.</li>
       </ul>
       <h4>Probidad Académica:</h4>
       <ul>
@@ -1141,15 +1153,10 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
   <article class="tema" id="j-dispositivos">
     <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none"><rect x="7" y="2" width="10" height="20" rx="2" stroke="currentColor" stroke-width="2"/><path d="M4 8 20 16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>Política de uso de dispositivos electrónicos</h3>
     <div class="tema-body">
+      <p>Para dar cumplimiento a la disposición de la SEP, al inicio de la jornada las alumnas deberán entregar su teléfono celular para su resguardo en un espacio seguro designado por el colegio. Los dispositivos permanecerán en Dirección durante el día y serán devueltos a las 2:10 p.m., antes de la salida.</p>
       <h4>Consecuencias por incumplimiento</h4>
-      <div class="tbl-scroll"><table>
-        <thead><tr><th>Ocasión</th><th>Consecuencia</th></tr></thead>
-        <tbody>
-          <tr><td>Primera</td><td>Se aplica un R&amp;R y el dispositivo será resguardado por la Dirección General y entregado a la madre, padre o tutor ese mismo día.</td></tr>
-          <tr><td>Segunda</td><td>Se aplica un R&amp;R y el dispositivo será resguardado por la Dirección General y entregado a la madre, padre o tutor al tercer día.</td></tr>
-          <tr><td>Tercera</td><td>Se aplica un R&amp;R y el dispositivo será resguardado por la Dirección General y entregado a la madre, padre o tutor a la semana.</td></tr>
-        </tbody>
-      </table></div>
+      <p>Si una alumna conserva consigo un dispositivo y este es detectado durante la jornada escolar, el colegio procederá a retirarlo. El dispositivo será resguardado en Dirección General y únicamente podrá ser recogido por la madre, el padre o el tutor al finalizar la jornada escolar. Asimismo, la alumna recibirá un R&amp;R, de acuerdo con el reglamento de convivencia.</p>
+      <div class="nota"><span class="n-ico">■</span><span>El colegio implementará las medidas razonables para el resguardo de los dispositivos; sin embargo, su uso y posesión son responsabilidad de cada familia. Por ello, el colegio no se hace responsable por pérdidas, daños o desperfectos que pudieran presentarse.</span></div>
     </div>
   </article>
 </section>
@@ -1166,7 +1173,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
     <div class="tema-body">
       <p><strong>Entrada:</strong> 7:45 a.m. — la alumna debe estar en su salón a esta hora.<br><strong>Salida:</strong> 2:15 p.m.</p>
       <ul>
-        <li>Se considera retardo cuando la alumna llega a la clase de primera hora entre las 7:45 a.m. y las 8:00 a.m.</li>
+        <li>Se considera retardo cuando la alumna llega a la clase de primera hora entre las 7:46 y las 7:50 a.m. La llegada a partir de las 7:51 a.m. se considera falta en la clase.</li>
         <li>No hay retardos para las clases que no empiezan a las 7:45 a.m.</li>
         <li>Tres retardos = una falta en la materia.</li>
       </ul>
@@ -1191,7 +1198,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <thead><tr><th>Tipo</th><th>Motivo</th><th>Repone actividades</th></tr></thead>
         <tbody>
           <tr><td>Justificada (no contabilizada)</td><td>Enfermedad con hospitalización, duelo, viaje escolar, evento deportivo de alto rendimiento.</td><td>Opcional, bajo criterio de importancia.</td></tr>
-          <tr><td>Justificada (sí contabilizada)</td><td>Enfermedad sin hospitalización (<strong>notificando a través del formulario de Google para el reporte de faltas</strong>). Viaje familiar aprobado previamente por Dirección (<strong>máximo de 15 días</strong>).</td><td>Sí. Los días que falte son los días que tiene para reponer.</td></tr>
+          <tr><td>Justificada (sí contabilizada)</td><td>Ausencias por motivos personales o viajes familiares, no relacionados con el colegio (<strong>enviando justificante médico o notificación oficial por medio del app con la preceptora o la asistente de sección</strong>).</td><td>Sí, en el plazo señalado por Dirección. Si no entrega las actividades, se califican con cero.</td></tr>
           <tr><td>Injustificada</td><td>Sin aviso ni justificante válido. Viajes recreativos sin relación con el colegio. Viajes de amigas, incluyendo mamá e hija.</td><td>No — calificación 0.</td></tr>
         </tbody>
       </table></div>
@@ -1201,14 +1208,16 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
   <article class="tema" id="h-vestir">
     <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none"><path d="M20.4 6.6 16 4l-2 2h-4L8 4 3.6 6.6a1 1 0 0 0-.4 1.3l1.5 3a1 1 0 0 0 1.3.5L7 10.6V20a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9.4l1 .8a1 1 0 0 0 1.3-.5l1.5-3a1 1 0 0 0-.4-1.3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>Código de vestir</h3>
     <div class="tema-body">
-      <p>En Redwood High no hay uniforme académico diario, pero sí un código de vestir claro que cuida la presentación e imagen de nuestra comunidad. El colegio comunicará en qué ocasiones aplica cada código:</p>
+      <p>En Redwood High no hay uniforme académico diario, pero sí un código de vestir claro que cuida la presentación e imagen de nuestra comunidad. El colegio comunicará en qué ocasiones aplica cada uno de los tres códigos:</p>
       <div class="tbl-scroll"><table>
         <thead><tr><th>Código</th><th>Cuándo aplica</th><th>Prendas</th></tr></thead>
         <tbody>
           <tr><td>Formal</td><td>Eventos oficiales, ceremonias y actos institucionales.</td><td>Pantalón de vestir, falda o vestido. Blusa con manga que cubra hombros y abdomen. Calzado apropiado. Sin escotes, transparencias ni crop tops.</td></tr>
-          <tr><td>Casual</td><td>Días de ropa libre designados.</td><td>Jeans, pants, joggers o leggins con blusa larga. Blusas con tirante moderado (no spaghetti straps, ni halter). Tenis o sandalias en buen estado. Sin pijamas, ropa de playa, ropa rota ni mensajes ofensivos.</td></tr>
+          <tr><td>Casual</td><td>Cuando el colegio lo indique para el evento o día designado.</td><td>Camisetas, blusas y camisas con o sin mangas. Jeans o pantalones khaki (desgastes moderados o rotos solo por debajo de la rodilla). Tenis casuales, planos, sandalias o cualquier zapato cómodo. No se permiten: tirantes delgados (spaghetti straps), halter, racerback, escotes pronunciados, transparencias, crop tops, pijamas, ropa de playa ni ropa con lenguaje o imágenes ofensivas.</td></tr>
+          <tr><td>Informal</td><td>Cuando el colegio lo indique para el evento o día designado.</td><td>Camisetas, blusas y camisas con o sin mangas; se permiten camisetas gráficas (t-shirts) o deportivas con imágenes apropiadas. Jeans, pantalones khaki, cargos, pants, joggers, leggins con blusa larga, faldas y bermudas con largo adecuado (no más cortos a dos dedos por encima de la rodilla). Zapatos deportivos, tenis casuales, planos o sandalias. Aplican las mismas prendas no permitidas del código casual.</td></tr>
         </tbody>
       </table></div>
+      <div class="nota"><span class="n-ico">■</span><span>En todos los códigos: evitar joyería excesiva o que pueda distraer, piercings en el rostro o expansores en el lóbulo del oído. No se permite el uso de pantuflas ni de tacones extremadamente altos o calzado que pueda representar un riesgo de seguridad.</span></div>
       <div class="nota"><span class="n-ico">■</span><span>Faltas reiteradas al código de vestir pueden resultar en suspensión de entrada a clases.</span></div>
     </div>
   </article>
@@ -1247,8 +1256,8 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <thead><tr><th>Sanción</th><th>¿Qué implica?</th><th>Impacto</th></tr></thead>
         <tbody>
           <tr><td>R&amp;R</td><td>La alumna reflexiona sobre lo ocurrido y elabora un plan de acción. Comunicación inmediata a los padres. Se lleva a Consejo Directivo desde la primera notificación a padres de familia.</td><td>3 R&amp;R por trimestre afectan la carta de buena conducta.</td></tr>
-          <tr><td>Suspensión (caso grave o reincidencia)</td><td>Ante faltas graves o reincidencia, el Consejo Directivo revisa el caso y determina la acción más adecuada según la gravedad. La alumna y sus padres participan en el proceso.</td><td>Carta de buena conducta y calificación de conducta.</td></tr>
-          <tr><td>Expulsión</td><td>El Consejo Directivo revisa el caso y determina si la situación amerita expulsión.</td><td>Baja definitiva del colegio. Afecta carta de buena conducta.</td></tr>
+          <tr><td>Suspensión (falta grave o reincidencia)</td><td>La determina la Dirección o el Consejo Directivo, según la gravedad, previa audiencia de la alumna e información a sus padres. De uno a tres días de clases, sin participación en actividades académicas ni extracurriculares. Toda suspensión va acompañada de una reunión con la familia y un plan de compromiso por escrito; podrá asignarse una acción restaurativa.</td><td>Actividades de esos días: 0. Conducta del periodo: 50. Queda registrada en el expediente y podrá afectar la carta de buena conducta.</td></tr>
+          <tr><td>Faltas graves o muy graves</td><td>El Consejo Directivo analiza el caso mediante un procedimiento formal: comunicación por escrito a la familia, audiencia de la alumna acompañada de sus padres y resolución por escrito. Según la gravedad, las medidas podrán comprender: acción restaurativa y plan de compromiso; suspensión; condicionamiento de la reinscripción; y, en los casos de mayor gravedad o de incumplimiento sostenido de los compromisos, la baja definitiva del colegio.</td><td>Podrá afectar la carta de buena conducta y la calificación de conducta.</td></tr>
         </tbody>
       </table></div>
       <div class="compromiso"><strong>El rol del Consejo Directivo</strong><br>Acompaña a las alumnas en los momentos importantes, analiza cada situación de manera individual junto con la alumna y su familia, y determina en conjunto el camino más adecuado. Creemos que los retos bien acompañados forman carácter.</div>
@@ -1264,6 +1273,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <li>Usar el celular en exámenes = deshonestidad académica.</li>
         <li>El ciberacoso o difusión de imágenes ofensivas es falta grave las 24 horas del día.</li>
         <li>Está prohibido el uso de red alternativa.</li>
+        <li>La alumna que sea sorprendida incumpliendo estos lineamientos deberá llenar su correspondiente R&amp;R, y el Consejo Directivo o de Nivel determinarán la sanción correspondiente.</li>
       </ul>
     </div>
   </article>
@@ -1292,14 +1302,14 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
     <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M14 2v6h6M8 13h8M8 17h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>Inscripciones</h3>
     <div class="tema-body">
       <ul>
-        <li>Las inscripciones se realizan a través de NEMAX en las fechas indicadas en la circular correspondiente. Los padres son responsables de inscribir a sus hijos.</li>
+        <li>Las inscripciones se realizarán a través de NEMAX, dentro de las fechas indicadas en la circular correspondiente. Los padres serán responsables de realizar la inscripción de sus hijos. Para completar el proceso de inscripción, es importante que el estatus de colegiaturas correspondientes se encuentren al corriente.</li>
         <li>Es indispensable entregar un certificado de buena salud en la coordinación deportiva, así como comunicar cualquier afección médica, lesión anterior, cirugías o condición relevante.</li>
         <li>Cuando el número de alumnos inscritos supere los lugares disponibles, se realizarán tryouts para conformar los equipos.</li>
         <li>Los alumnos que practiquen dos disciplinas deben elegir su deporte de prioridad al inscribirse.</li>
         <li>La firma de esta normativa es indispensable para participar en ligas, torneos y competencias.</li>
       </ul>
       <h4>Renovación de inscripción</h4>
-      <p>Los alumnos inscritos en alguna disciplina deportiva durante el ciclo escolar 2026–2027 recibirán, durante el mes de junio y a través de su coach correspondiente, una carta de invitación para continuar su participación en el ciclo escolar 2027–2028. Para garantizar la conservación de su lugar, será indispensable confirmar su continuidad a más tardar en la fecha límite indicada en la carta de invitación. En caso de no recibir la confirmación dentro del plazo establecido, el espacio quedará disponible para ser asignado a otra alumna en lista de espera o de nuevo ingreso.</p>
+      <p>Los alumnos inscritos en alguna disciplina deportiva durante el ciclo escolar 2026–2027 recibirán, durante el mes de junio y a través de su coach correspondiente, una carta de invitación para continuar su participación en el ciclo escolar 2027–2028. Para garantizar la conservación de su lugar, será indispensable confirmar su continuidad a más tardar en la fecha límite indicada en la carta de invitación. En caso de no recibir la confirmación dentro del plazo establecido, el espacio quedará disponible para ser asignado a otro alumno en lista de espera o de nuevo ingreso.</p>
       <div class="nota"><span class="n-ico">■</span><span>La presente disposición no aplica para las disciplinas de Gimnasia y Taekwondo, las cuales cuentan con lineamientos específicos de permanencia e inscripción.</span></div>
     </div>
   </article>
@@ -1319,7 +1329,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
   <article class="tema" id="d-asistencia">
     <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 6v6l4 2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>Asistencia y puntualidad</h3>
     <div class="tema-body">
-      <p>Como parte del carácter formativo y competitivo del programa deportivo, es fundamental para el desarrollo deportivo de el alumno el compromiso con su deporte y con su equipo.</p>
+      <p>Como parte del carácter formativo y competitivo del programa deportivo, es fundamental para el desarrollo deportivo del alumno el compromiso con su deporte y con su equipo.</p>
       <p>La asistencia a los entrenamientos es un factor fundamental para su desarrollo y para su participación en los partidos. La asignación de tiempo de juego será determinada por el coach considerando:</p>
       <ul>
         <li>La asistencia a los entrenamientos.</li>
@@ -1341,12 +1351,13 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
     <div class="tema-body">
       <ul>
         <li>El alumno se compromete a cumplir con todos los partidos y competencias a los que sea convocado.</li>
-        <li>Faltar injustificadamente a un partido puede implicar no ser convocado al siguiente encuentro.</li>
+        <li>La falta injustificada (ausencia sin justificación válida ni previamente comunicada) a un partido o competencia, podrá resultar en la no convocatoria del alumno al siguiente encuentro, sin importar su nivel deportivo o posición dentro del equipo.</li>
         <li>Llegar tarde a un partido se reflejará directamente en los minutos de juego.</li>
         <li>Participar en los eventos deportivos institucionales convocados por el colegio.</li>
         <li>Priorizar la participación con el equipo Liceo Redwood. La reincidencia en incumplir este punto puede resultar en baja de la liga durante el ciclo escolar.</li>
-        <li>A partir de cuartos de final, el tiempo de juego queda a consideración del coach según el desarrollo del partido.</li>
+        <li>En semifinales, finales (ligas y copas), la participación será determinada por el coach.</li>
         <li>Mostrar siempre respeto hacia el equipo contrario, árbitros y coach.</li>
+        <li>Las actividades deportivas únicamente se suspenderán por causas extraordinarias o climáticas adversas, y de ser necesario se notificará en tiempo y forma por medio de la App Liceo.</li>
       </ul>
     </div>
   </article>
@@ -1358,7 +1369,7 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
         <li>Respetar en todo momento las indicaciones y decisiones del coach, en entrenamientos, partidos y competencias.</li>
         <li>Las conductas antideportivas se manejarán mediante aviso o R&amp;R según corresponda, con notificación a los padres.</li>
         <li>Daños a instalaciones, equipos o lesiones causadas por el alumno serán responsabilidad económica de los padres.</li>
-        <li>Coach y preceptora mantienen comunicación constante para el acompañamiento integral del alumno.</li>
+        <li>Coach y preceptora mantienen comunicación constante para el acompañamiento integral del alumno. Faltas de disciplina por la mañana que ameriten una suspensión, aplicará también en el deporte por la tarde.</li>
         <li>Durante los entrenamientos queda prohibido el uso de celular y audífonos. En caso de que un alumno llegue con alguno de estos dispositivos, deberá guardarlo en su mochila antes de iniciar la sesión. Ante la reincidencia, la coordinadora resguardará el dispositivo hasta que la madre, padre o tutor pase a recogerlo personalmente.</li>
       </ul>
     </div>
@@ -1382,11 +1393,21 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
       <ul>
         <li>El canal oficial es la App Liceo. Las comunicaciones fuera de los canales establecidos no serán consideradas oficiales.</li>
         <li>Para resolver dudas o sugerencias: primero hablar con el coach; segundo, con la coordinadora de LAS-Sports.</li>
-        <li>Las dudas o inquietudes se atienden mediante entrevista previamente agendada. No se atenderán asuntos en canchas o pasillos.</li>
+        <li>Las dudas o inquietudes se atienden mediante entrevista previamente agendada con la presencia de ambos padres. No se atenderán asuntos en canchas o pasillos.</li>
         <li>Cualquier situación no prevista será evaluada por el Consejo de Deportes del Liceo Redwood.</li>
       </ul>
     </div>
   </article>
+  <article class="tema" id="d-seguro">
+    <h3><span class="ico"><svg viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>Seguro de gastos médicos mayores</h3>
+    <div class="tema-body">
+      <ul>
+        <li>Todos los alumnos deben contar con seguro de gastos médicos mayores vigente y pagado, a elección de la familia. En caso de accidente, los padres lo utilizarán o cubrirán el gasto con sus propios recursos.</li>
+        <li>El colegio ofrece sin costo adicional un seguro de accidentes escolares de cobertura limitada. Si se utiliza, los padres cubren el deducible.</li>
+      </ul>
+    </div>
+  </article>
+
 </section>
 
 <section class="nivel" id="admin" data-sec="Administración y Pagos">
@@ -1550,8 +1571,6 @@ m-28 -1065 c12 -7 26 -18 30 -26 4 -7 25 -22 45 -33 20 -12 53 -33 73 -48 20
           <tr><td>Amonestación escrita</td><td>Comunicado formal sobre la conducta.</td></tr>
           <tr><td>Cita con Consejo Directivo</td><td>Reunión formal para analizar el caso.</td></tr>
           <tr><td>Restricción de acceso</td><td>Acceso limitado a instalaciones, salvo trámites necesarios.</td></tr>
-          <tr><td>Condicionamiento</td><td>La reinscripción de la familia queda condicionada.</td></tr>
-          <tr><td>Negativa de inscripción</td><td>No se autoriza la inscripción o reinscripción para el siguiente ciclo.</td></tr>
         </tbody>
       </table></div>
       <div class="nota"><span class="n-ico">■</span><span>Las medidas serán determinadas por la Dirección evaluando la gravedad de la conducta y su impacto en la comunidad educativa.</span></div>
