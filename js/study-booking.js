@@ -74,6 +74,16 @@ function durationLabel(minutes) {
   return DURATION_LABELS[minutes] || `${minutes} min`;
 }
 
+/**
+ * Teachers and admins book instantly, may pick any space (including ones
+ * hidden from alumnas), and are exempt from the 2h cap and the per-user room
+ * restriction. request_study_booking enforces all of that server-side; the
+ * checks here only shape what the form offers.
+ */
+function isStaff() {
+  return state.profile?.role === 'teacher' || state.profile?.role === 'admin';
+}
+
 function linkedRoomName(space) {
   return space?.spaces?.name ?? null;
 }
@@ -81,6 +91,14 @@ function linkedRoomName(space) {
 function spaceSelectLabel(space) {
   const linked = linkedRoomName(space);
   const suffix = linked ? ` (misma sala: ${linked})` : '';
+
+  // Staff book everything instantly, so "sin aprobación" would be noise on
+  // every option; what they need flagged is which rooms alumnas cannot see.
+  if (isStaff()) {
+    const hidden = space.active === false ? ' · no visible para alumnas' : '';
+    return `${space.name}${suffix}${hidden}`;
+  }
+
   // requires_approval = false → the booking is approved on the spot.
   const auto = space.requires_approval === false ? ' · sin aprobación' : '';
   return `${space.name}${suffix}${auto}`;
@@ -128,17 +146,25 @@ function getFormSelection() {
 }
 
 async function fetchActiveStudySpaces() {
-  const { data, error } = await supabase
+  let query = supabase
     .from('study_spaces')
-    .select('id, name, space_id, requires_approval, spaces(name)')
-    .eq('active', true)
-    .order('name');
+    .select('id, name, space_id, active, requires_approval, spaces(name)');
+
+  // Students only ever see spaces opened to alumnas. Staff also get the
+  // inactive ones — that is how they reserve a room fuera de horario.
+  if (!isStaff()) {
+    query = query.eq('active', true);
+  }
+
+  const { data, error } = await query.order('name');
   if (error) throw error;
   const spaces = data ?? [];
+
   // Room-restricted account: only study spaces linked to the assigned room.
   // Cosmetic filter — request_study_booking enforces the same rule server-side.
+  // Staff are exempt from the restriction entirely.
   const only = state.profile?.only_space_id;
-  if (only != null) {
+  if (!isStaff() && only != null) {
     return spaces.filter((s) => s.space_id === only);
   }
   return spaces;
@@ -181,12 +207,22 @@ function studentMinutesUsedOnDate(date) {
 }
 
 function buildPanelShell() {
+  const staff = isStaff();
+  // Admins reach this form from their own "Reservar espacio" tab, separate
+  // from the management panel, so the heading has to match that tab.
+  const title = state.profile?.role === 'admin' ? 'Reservar espacio' : 'Espacios de estudio';
+  const sectionTitle = staff ? 'Reservar espacio' : 'Solicitar espacio';
+  const instantNote = staff
+    ? `<p class="study-book-instant-note">Se reserva al instante — tus reservaciones no requieren aprobación. Puedes elegir cualquier espacio, incluidos los que no están abiertos a las alumnas.</p>`
+    : '';
+
   return `
-    <h2 class="panel-title">Espacios de estudio</h2>
+    <h2 class="panel-title">${title}</h2>
     <div id="study-book-alert" class="alert alert-error" hidden></div>
 
     <section class="study-book-section app-form-section">
-      <h3 class="study-book-section-title">Solicitar espacio</h3>
+      <h3 class="study-book-section-title">${sectionTitle}</h3>
+      ${instantNote}
       <form id="study-book-form" class="study-book-form app-form-card">
         <p class="study-book-capacity-note">Los espacios con mayor capacidad requieren un mínimo de 8 alumnas para poder reservarlo.</p>
         <div class="form-group study-book-field">
@@ -217,12 +253,12 @@ function buildPanelShell() {
           <p class="study-book-taken-title">Horarios ocupados en esta fecha</p>
           <ul id="study-book-taken-list" class="study-book-taken-list"></ul>
         </div>
-        <button type="submit" class="btn btn-primary">Solicitar</button>
+        <button type="submit" class="btn btn-primary">${staff ? 'Reservar' : 'Solicitar'}</button>
       </form>
     </section>
 
     <section class="study-book-section">
-      <h3 class="study-book-section-title">Mis solicitudes</h3>
+      <h3 class="study-book-section-title">${staff ? 'Mis reservaciones' : 'Mis solicitudes'}</h3>
       <div id="study-book-own-list" class="study-book-own-list"></div>
     </section>
   `;
@@ -555,11 +591,16 @@ function wireEvents(panel) {
 }
 
 export async function mountStudyBooking(profile) {
-  if (profile.role !== 'student' && profile.role !== 'teacher') return;
+  if (profile.role !== 'student' && profile.role !== 'teacher' && profile.role !== 'admin') return;
 
   cleanup();
 
-  const panel = document.getElementById('panel-espacios-de-estudio');
+  // Admins keep "Espacios de estudio" for management (admin-study-spaces.js
+  // owns that panel) and book from a separate "Reservar espacio" tab.
+  const panelId = profile.role === 'admin'
+    ? 'panel-reservar-espacio'
+    : 'panel-espacios-de-estudio';
+  const panel = document.getElementById(panelId);
   if (!panel) return;
 
   state.profile = profile;

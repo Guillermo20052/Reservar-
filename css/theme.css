@@ -3670,3 +3670,15 @@ button:active { transform: scale(.975); }
 .usuarios-space-select {
   max-width: 220px;
 }
+
+/* Staff booking notice (js/study-booking.js) */
+.study-book-instant-note {
+  margin: 0 0 14px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--chiptx);
+  padding: 10px 12px;
+  border: 1px solid var(--bd);
+  border-radius: 8px;
+  background: var(--brand-soft);
+}

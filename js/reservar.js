@@ -3,7 +3,7 @@ import { requireAuth, getProfile, signOut } from './auth.js';
 const TABS_BY_ROLE = {
   student: ['Horario', 'Espacios de estudio'],
   teacher: ['Horario', 'Reservar mi espacio', 'Espacios de estudio', 'Mi perfil'],
-  admin: ['Horario', 'Horario general', 'Editar horario', 'Reservaciones semanales', 'Usuarios', 'Espacios de estudio'],
+  admin: ['Horario', 'Horario general', 'Editar horario', 'Reservaciones semanales', 'Usuarios', 'Reservar espacio', 'Espacios de estudio'],
 };
 
 const ROLE_LABELS = {
@@ -81,7 +81,7 @@ async function init() {
   const { mountHorario } = await import('./horario-view.js');
   await mountHorario(profile);
 
-  if (profile.role === 'student' || profile.role === 'teacher') {
+  if (profile.role === 'student' || profile.role === 'teacher' || profile.role === 'admin') {
     const { mountStudyBooking } = await import('./study-booking.js');
     await mountStudyBooking(profile);
   }
