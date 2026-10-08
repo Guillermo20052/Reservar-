@@ -16,6 +16,7 @@ const ERROR_MESSAGES = {
   'not your turn': 'No es tu turno.',
   'not your slot': 'Esta franja no te corresponde.',
   'espacio no disponible': 'Ese espacio ya no está disponible.',
+  'espacio no disponible en ese horario': 'Ese espacio ya está ocupado en ese horario.',
   'código incorrecto': 'Código incorrecto.',
   'slot not found': 'Franja no encontrada.',
   'part required for multi slot': 'Franja múltiple: falta identificar la parte.',
@@ -62,6 +63,11 @@ function escapeHtml(text) {
 function formatTime(time) {
   if (!time) return '';
   return String(time).slice(0, 5);
+}
+
+function timeToMinutes(time) {
+  const [h, m] = String(time).split(':').map(Number);
+  return h * 60 + m;
 }
 
 function friendlyError(message) {
@@ -229,10 +235,13 @@ async function fetchSpaces() {
 async function fetchSessionReservations(sessionId) {
   const { data, error } = await supabase
     .from('reservations')
-    .select('id, slot_id, slot_part_id, pick_index, space_id, teacher_id, day, start_time, confirmed')
+    .select('id, slot_id, slot_part_id, pick_index, space_id, teacher_id, day, start_time, confirmed, timetable_slots(end_time)')
     .eq('session_id', sessionId);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map(({ timetable_slots: slot, ...r }) => ({
+    ...r,
+    end_time: slot?.end_time ?? null,
+  }));
 }
 
 function computeUiState() {
@@ -280,11 +289,18 @@ function pickForItemAtIndex(item, pickIndex) {
   return picksForItem(item).find((r) => (r.pick_index ?? 1) === pickIndex) ?? null;
 }
 
-function takenSpaceIds(day, startTime, excludeSlotId, excludePartId = null, excludePickIndex = null) {
+function takenSpaceIds(day, startTime, endTime, excludeSlotId, excludePartId = null, excludePickIndex = null) {
+  const reqStart = timeToMinutes(startTime);
+  const reqEnd = timeToMinutes(endTime);
   return new Set(
     state.reservations
       .filter((r) => {
-        if (r.day !== day || r.start_time !== startTime) return false;
+        if (r.day !== day) return false;
+        // Half-open interval overlap; without a known end, fall back to exact start.
+        const overlaps = r.end_time
+          ? timeToMinutes(r.start_time) < reqEnd && reqStart < timeToMinutes(r.end_time)
+          : r.start_time === startTime;
+        if (!overlaps) return false;
         if (r.slot_id !== excludeSlotId) return true;
         const partMatch = excludePartId ? r.slot_part_id === excludePartId : !r.slot_part_id;
         if (!partMatch) return true;
@@ -386,6 +402,7 @@ function renderSpaceSelect(item, pickIndex, pick) {
   const taken = takenSpaceIds(
     item.day,
     item.start_time,
+    item.end_time,
     item.slot_id,
     item.part_id,
     pickIndex
@@ -620,7 +637,7 @@ async function handleSpaceChange(select) {
     select.value = prevValue;
     const msg = friendlyError(err.message);
     showAlert(msg);
-    if (err.message === 'espacio no disponible') {
+    if (err.message === 'espacio no disponible' || err.message === 'espacio no disponible en ese horario') {
       await refresh();
     }
   } finally {
