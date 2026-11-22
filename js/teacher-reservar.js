@@ -23,7 +23,14 @@ const ERROR_MESSAGES = {
   'invalid slot part': 'Parte de franja no válida.',
   'part not allowed for single slot': 'Esta franja no admite partes.',
   'invalid pick index': 'Selección de espacio no válida.',
+  'elige 2 o 3 modalidades': 'Elige 2 o 3 modalidades.',
+  'modalidades repetidas': 'Hay modalidades repetidas.',
+  'modalidad no válida': 'Modalidad no válida.',
+  'solo docentes pueden registrar modalidades': 'Solo las maestras pueden registrar modalidades.',
 };
+
+const MIN_MODALITIES = 2;
+const MAX_MODALITIES = 3;
 
 /** @type {{
  *   profile: object | null,
@@ -37,6 +44,12 @@ const ERROR_MESSAGES = {
  *   countdownInterval: ReturnType<typeof setInterval> | null,
  *   debounceTimer: ReturnType<typeof setTimeout> | null,
  *   advanceAttemptedFor: string | null,
+ *   modalities: {id: number, name: string}[],
+ *   savedModalities: Record<string, number[]>,
+ *   pendingModalities: Record<string, number[]>,
+ *   modalitySaving: Record<string, boolean>,
+ *   modalityQueue: Record<string, number[] | undefined>,
+ *   pickerOpen: Record<string, boolean>,
  * }} */
 const state = {
   profile: null,
@@ -50,6 +63,12 @@ const state = {
   countdownInterval: null,
   debounceTimer: null,
   advanceAttemptedFor: null,
+  modalities: [],
+  savedModalities: {},
+  pendingModalities: {},
+  modalitySaving: {},
+  modalityQueue: {},
+  pickerOpen: {},
 };
 
 function escapeHtml(text) {
@@ -232,6 +251,30 @@ async function fetchSpaces() {
   return data ?? [];
 }
 
+async function fetchModalities() {
+  const { data, error } = await supabase
+    .from('modalities')
+    .select('id, name')
+    .order('id');
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function fetchMyClassModalities(weekStart) {
+  const { data, error } = await supabase
+    .from('class_modalities')
+    .select('slot_id, slot_part_id, modality_ids')
+    .eq('week_start', weekStart)
+    .eq('teacher_id', state.profile.id);
+  if (error) throw error;
+  /** @type {Record<string, number[]>} */
+  const map = {};
+  for (const row of data ?? []) {
+    map[classKey(row.slot_id, row.slot_part_id)] = (row.modality_ids ?? []).map(Number);
+  }
+  return map;
+}
+
 async function fetchSessionReservations(sessionId) {
   const { data, error } = await supabase
     .from('reservations')
@@ -313,6 +356,39 @@ function takenSpaceIds(day, startTime, endTime, excludeSlotId, excludePartId = n
 
 function spaceNameById(spaceId) {
   return state.spaces.find((s) => s.id === spaceId)?.name ?? '—';
+}
+
+function classKey(slotId, partId) {
+  return `${slotId}|${partId || ''}`;
+}
+
+function itemKey(item) {
+  return classKey(item.slot_id, item.part_id);
+}
+
+/** What the picker shows: unsaved local edit if any, else the saved set. */
+function displayedModalities(key) {
+  return state.pendingModalities[key] ?? state.savedModalities[key] ?? [];
+}
+
+function isValidModalitySet(ids) {
+  return ids.length >= MIN_MODALITIES && ids.length <= MAX_MODALITIES;
+}
+
+/** A class is complete only when its saved set is valid and no invalid local edit is pending. */
+function isItemComplete(item) {
+  const key = itemKey(item);
+  const pending = state.pendingModalities[key];
+  if (pending && !isValidModalitySet(pending)) return false;
+  return isValidModalitySet(state.savedModalities[key] ?? []);
+}
+
+function incompleteItems() {
+  return state.bookingItems.filter((item) => !isItemComplete(item));
+}
+
+function modalityName(id) {
+  return state.modalities.find((m) => m.id === id)?.name ?? `Modalidad ${id}`;
 }
 
 function teacherDisplayName(teacherId) {
@@ -431,6 +507,61 @@ function renderSpaceSelect(item, pickIndex, pick) {
   `;
 }
 
+function renderModalityPicker(item) {
+  const key = itemKey(item);
+  const selected = displayedModalities(key);
+  const complete = isItemComplete(item);
+  const saving = Boolean(state.modalitySaving[key]);
+  const open = state.pickerOpen[key] ?? !complete;
+  const full = selected.length >= MAX_MODALITIES;
+  const partAttr = item.part_id ? ` data-part-id="${item.part_id}"` : '';
+
+  let status;
+  if (saving) {
+    status = '<span class="reservar-modal-status reservar-modal-status--saving">Guardando…</span>';
+  } else if (complete) {
+    status = `<span class="reservar-modal-status reservar-modal-status--ok">✓ ${selected.map((id) => escapeHtml(`${id} · ${modalityName(id)}`)).join(' · ')}</span>`;
+  } else if (selected.length && selected.length < MIN_MODALITIES) {
+    status = `<span class="reservar-modal-status reservar-modal-status--warn">Elige al menos ${MIN_MODALITIES} (${selected.length}/${MAX_MODALITIES})</span>`;
+  } else {
+    status = '<span class="reservar-modal-status reservar-modal-status--warn">⚠ Faltan modalidades</span>';
+  }
+
+  const chips = state.modalities
+    .map((m) => {
+      const isOn = selected.includes(m.id);
+      const disabled = !isOn && full ? ' disabled' : '';
+      return `<button type="button" class="reservar-modal-chip${isOn ? ' is-selected' : ''}" data-slot-id="${item.slot_id}"${partAttr} data-mod-id="${m.id}" aria-pressed="${isOn}"${disabled}><span class="reservar-modal-num">${m.id}</span>${escapeHtml(m.name)}</button>`;
+    })
+    .join('');
+
+  return `
+    <details class="reservar-modal-picker${complete ? '' : ' is-incomplete'}" data-key="${escapeHtml(key)}"${open ? ' open' : ''}>
+      <summary class="reservar-modal-summary">
+        <span class="reservar-modal-hd">Modalidades de enseñanza</span>
+        ${status}
+      </summary>
+      <p class="reservar-modal-hint">Elige 2 o 3 modalidades de Nair para esta clase · ${selected.length}/${MAX_MODALITIES} seleccionadas</p>
+      <div class="reservar-modal-chips" role="group" aria-label="Modalidades para ${escapeHtml(item.class_name)}">${chips}</div>
+    </details>
+  `;
+}
+
+function renderModalityWarning() {
+  const missing = incompleteItems().length;
+  if (!missing || !state.modalities.length) return '<div id="reservar-modal-warning"></div>';
+  const noun = missing === 1 ? 'clase' : 'clases';
+  return `<div id="reservar-modal-warning" class="alert reservar-modal-warning" role="status">⚠ Te faltan modalidades de enseñanza en <strong>${missing} ${noun}</strong>. Elige 2 o 3 en cada clase.</div>`;
+}
+
+function rerenderModalityPicker(key) {
+  const item = state.bookingItems.find((it) => itemKey(it) === key);
+  const el = [...document.querySelectorAll('.reservar-modal-picker')].find((d) => d.dataset.key === key);
+  if (item && el) el.outerHTML = renderModalityPicker(item);
+  const warn = document.getElementById('reservar-modal-warning');
+  if (warn) warn.outerHTML = renderModalityWarning();
+}
+
 function renderItemRow(item, ui) {
   const picks = picksForItem(item);
   const className = item.class_name;
@@ -467,6 +598,7 @@ function renderItemRow(item, ui) {
         <span class="reservar-slot-meta">${escapeHtml(item.grade)} · ${dayLabel} · ${timeRange}</span>
       </div>
       <div class="reservar-slot-pick">${spaceControl}</div>
+      ${state.modalities.length ? renderModalityPicker(item) : ''}
     </li>
   `;
 }
@@ -567,6 +699,7 @@ function renderContent() {
   root.innerHTML = `
     ${renderBanner(ui)}
     ${renderWeekLine()}
+    ${renderModalityWarning()}
     <section class="reservar-slots-section">
       <h3 class="reservar-section-title">Tus franjas</h3>
       <ul class="reservar-slot-list">${itemRows}</ul>
@@ -645,6 +778,126 @@ async function handleSpaceChange(select) {
   }
 }
 
+function handleModalityChipClick(chip) {
+  const slotId = chip.dataset.slotId;
+  const partId = chip.dataset.partId || null;
+  const modId = Number(chip.dataset.modId);
+  const key = classKey(slotId, partId);
+
+  const current = [...displayedModalities(key)];
+  const idx = current.indexOf(modId);
+  if (idx >= 0) {
+    current.splice(idx, 1);
+  } else {
+    if (current.length >= MAX_MODALITIES) return;
+    current.push(modId);
+  }
+  current.sort((a, b) => a - b);
+
+  state.pickerOpen[key] = true;
+  state.pendingModalities[key] = current;
+  hideAlert();
+
+  if (isValidModalitySet(current)) {
+    queueModalitySave(key, slotId, partId, current);
+  }
+  rerenderModalityPicker(key);
+}
+
+/**
+ * Saves are serialized per class: a click while a save is in flight only
+ * replaces the queued value, so the last selection always wins.
+ */
+async function queueModalitySave(key, slotId, partId, ids) {
+  state.modalityQueue[key] = ids;
+  if (state.modalitySaving[key]) return;
+
+  state.modalitySaving[key] = true;
+  rerenderModalityPicker(key);
+  try {
+    while (state.modalityQueue[key]) {
+      const next = state.modalityQueue[key];
+      state.modalityQueue[key] = undefined;
+      const { data, error } = await supabase.rpc('set_class_modalities', {
+        p_slot_id: slotId,
+        p_slot_part_id: partId,
+        p_modality_ids: next,
+      });
+      if (error) throw error;
+      const saved = (data?.modality_ids ?? next).map(Number).sort((a, b) => a - b);
+      state.savedModalities[key] = saved;
+      const pending = state.pendingModalities[key];
+      if (pending && pending.join(',') === saved.join(',')) {
+        delete state.pendingModalities[key];
+      }
+    }
+  } catch (err) {
+    state.modalityQueue[key] = undefined;
+    delete state.pendingModalities[key];
+    showAlert(`No se guardaron las modalidades: ${friendlyError(err.message)}`);
+  } finally {
+    state.modalitySaving[key] = false;
+    rerenderModalityPicker(key);
+  }
+}
+
+function ensureModalityPromptModal() {
+  let overlay = document.getElementById('reservar-modal-prompt');
+  if (overlay) return overlay;
+
+  overlay = document.createElement('div');
+  overlay.id = 'reservar-modal-prompt';
+  overlay.className = 'reservar-success-overlay';
+  overlay.hidden = true;
+  overlay.innerHTML = `
+    <div class="reservar-success-dialog" role="dialog" aria-labelledby="reservar-modal-prompt-title" aria-modal="true">
+      <p class="reservar-success-title" id="reservar-modal-prompt-title">Faltan modalidades</p>
+      <p class="reservar-success-text" id="reservar-modal-prompt-text"></p>
+      <div class="reservar-modal-prompt-actions">
+        <button type="button" class="btn btn-ghost" data-choice="fix">Completar modalidades</button>
+        <button type="button" class="btn btn-primary" data-choice="confirm">Confirmar de todos modos</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+/**
+ * Non-blocking (no window.confirm) so the countdown keeps ticking and
+ * advance_turn can still fire while the dialog is open.
+ * Resolves true to proceed with confirm_turn.
+ */
+function askConfirmWithMissingModalities(missingCount) {
+  const overlay = ensureModalityPromptModal();
+  const noun = missingCount === 1 ? '1 clase' : `${missingCount} clases`;
+  overlay.querySelector('#reservar-modal-prompt-text').textContent =
+    `Tienes ${noun} sin modalidades de enseñanza (2 o 3 por clase). Puedes confirmar ahora y completarlas después mientras el registro siga abierto.`;
+  overlay.hidden = false;
+
+  return new Promise((resolve) => {
+    const onClick = (ev) => {
+      const btn = ev.target.closest('[data-choice]');
+      const outside = ev.target === overlay;
+      if (!btn && !outside) return;
+      overlay.removeEventListener('click', onClick);
+      overlay.hidden = true;
+      resolve(btn?.dataset.choice === 'confirm');
+    };
+    overlay.addEventListener('click', onClick);
+  });
+}
+
+function focusFirstIncompletePicker() {
+  const first = incompleteItems()[0];
+  if (!first) return;
+  const key = itemKey(first);
+  state.pickerOpen[key] = true;
+  rerenderModalityPicker(key);
+  const el = [...document.querySelectorAll('.reservar-modal-picker')].find((d) => d.dataset.key === key);
+  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
 async function handleConfirm(e) {
   e.preventDefault();
   hideAlert();
@@ -654,6 +907,15 @@ async function handleConfirm(e) {
   if (!code) {
     showAlert('Ingresa tu código personal.');
     return;
+  }
+
+  const missing = state.modalities.length ? incompleteItems().length : 0;
+  if (missing) {
+    const proceed = await askConfirmWithMissingModalities(missing);
+    if (!proceed) {
+      focusFirstIncompletePicker();
+      return;
+    }
   }
 
   const btn = e.target.querySelector('button[type="submit"]');
@@ -681,23 +943,42 @@ async function refresh() {
     state.advanceAttemptedFor = null;
   }
 
+  if (!state.modalities.length) {
+    try {
+      state.modalities = await fetchModalities();
+    } catch (_) {
+      state.modalities = [];
+    }
+  }
+
   if (!state.session) {
     state.turns = [];
     state.reservations = [];
     state.teacherNames = {};
+    state.savedModalities = {};
     state.bookingItems = await fetchBookingItems();
     state.spaces = await fetchSpaces();
     renderContent();
     return;
   }
 
-  const [turns, bookingItems, spaces, reservations] = await Promise.all([
+  const [turns, bookingItems, spaces, reservations, savedModalities] = await Promise.all([
     fetchTurns(state.session.id),
     fetchBookingItems(),
     fetchSpaces(),
     fetchSessionReservations(state.session.id),
+    state.modalities.length
+      ? fetchMyClassModalities(state.session.week_start).catch(() => state.savedModalities)
+      : Promise.resolve({}),
   ]);
 
+  // Keep a just-saved local value if an in-flight save hasn't been read back yet.
+  for (const key of Object.keys(state.modalitySaving)) {
+    if (state.modalitySaving[key] && state.savedModalities[key] && !savedModalities[key]) {
+      savedModalities[key] = state.savedModalities[key];
+    }
+  }
+  state.savedModalities = savedModalities;
   state.turns = turns;
   state.bookingItems = bookingItems;
   state.spaces = spaces;
@@ -755,6 +1036,19 @@ function wireEvents(panel) {
     }
   });
 
+  panel.addEventListener('click', (e) => {
+    const chip = e.target.closest('.reservar-modal-chip');
+    if (chip && !chip.disabled) handleModalityChipClick(chip);
+  });
+
+  // Remember open/closed per class so realtime re-renders don't snap it shut.
+  panel.addEventListener('toggle', (e) => {
+    const details = e.target;
+    if (details instanceof HTMLDetailsElement && details.classList.contains('reservar-modal-picker')) {
+      state.pickerOpen[details.dataset.key] = details.open;
+    }
+  }, true);
+
   panel.addEventListener('submit', (e) => {
     if (e.target.id === 'reservar-confirm-form') {
       handleConfirm(e);
@@ -778,6 +1072,11 @@ export async function mountReservarEspacio(profile) {
   state.reservations = [];
   state.advanceAttemptedFor = null;
   state.teacherNames = {};
+  state.savedModalities = {};
+  state.pendingModalities = {};
+  state.modalitySaving = {};
+  state.modalityQueue = {};
+  state.pickerOpen = {};
 
   panel.innerHTML = buildPanelShell();
   wireEvents(panel);

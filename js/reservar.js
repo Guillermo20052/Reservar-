@@ -2,8 +2,8 @@ import { requireAuth, getProfile, signOut } from './auth.js';
 
 const TABS_BY_ROLE = {
   student: ['Horario', 'Espacios de estudio'],
-  teacher: ['Horario', 'Reservar mi espacio', 'Espacios de estudio', 'Mi perfil'],
-  admin: ['Horario', 'Horario general', 'Editar horario', 'Reservaciones semanales', 'Usuarios', 'Reservar espacio', 'Espacios de estudio'],
+  teacher: ['Horario', 'Reservar mi espacio', 'Mis modalidades', 'Espacios de estudio', 'Mi perfil'],
+  admin: ['Horario', 'Horario general', 'Editar horario', 'Reservaciones semanales', 'Uso de espacios', 'Usuarios', 'Reservar espacio', 'Espacios de estudio'],
 };
 
 const ROLE_LABELS = {
@@ -97,6 +97,8 @@ async function init() {
     await mountReservacionesSemanales(profile);
     const { mountAdminStudySpaces } = await import('./admin-study-spaces.js');
     await mountAdminStudySpaces(profile);
+    const { mountUsoEspacios } = await import('./uso-espacios.js');
+    await mountUsoEspacios(profile);
   }
 
   if (profile.role === 'teacher') {
@@ -104,6 +106,8 @@ async function init() {
     await mountTeacherProfile(profile);
     const { mountReservarEspacio } = await import('./teacher-reservar.js');
     await mountReservarEspacio(profile);
+    const { mountMisModalidades } = await import('./uso-espacios.js');
+    await mountMisModalidades(profile);
   }
 }
 
