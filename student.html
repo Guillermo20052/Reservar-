@@ -177,6 +177,9 @@ button.btn-reserva{width:calc(100% - 24px)}
 @media(max-width:900px){
   #sidebar{transform:translateX(-100%);transition:transform .3s;width:280px}
   #sidebar.open{transform:none}
+  .sb-head{padding-top:68px}
+  #sidebar{box-shadow:var(--shadow-lg)}
+  #sidebar:not(.open){box-shadow:none}
   #main{margin-left:0;padding-top:56px}
   #hamb{display:flex;position:fixed;top:12px;left:12px;z-index:60;width:44px;height:44px;border-radius:11px;
     border:1px solid var(--line);background:#fff;align-items:center;justify-content:center;box-shadow:var(--shadow);cursor:pointer}
