@@ -432,7 +432,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--navy); }
 .draft-badge-skipped {
   background: var(--mist);
   border-color: var(--line);
-  color: var(--faint);
+  color: var(--ink-soft);
   text-decoration: line-through;
   text-decoration-color: rgba(132, 102, 98, .5);
 }
@@ -466,7 +466,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--navy); }
 .horario-view-space-pending {
   background: var(--mist);
   border-color: var(--line);
-  color: var(--faint);
+  color: var(--ink-soft);
   font-weight: 600;
 }
 
