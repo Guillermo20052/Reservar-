@@ -4,7 +4,7 @@ import { FEATURES } from './features.js';
 const TABS_BY_ROLE = {
   student: ['Horario', 'Espacios de estudio'],
   teacher: ['Horario', 'Reservar mi espacio', 'Mis modalidades', 'Espacios de estudio', 'Mi perfil'],
-  admin: ['Horario', 'Horario general', 'Editar horario', 'Reservaciones semanales', 'Uso de espacios', 'Usuarios', 'Reservar espacio', 'Espacios de estudio'],
+  admin: ['Horario', 'Horario general', 'Horario con modalidades', 'Editar horario', 'Reservaciones semanales', 'Uso de espacios', 'Usuarios', 'Reservar espacio', 'Espacios de estudio'],
 };
 
 const ROLE_LABELS = {
@@ -24,7 +24,7 @@ function renderHeader(profile) {
   roleEl.className = `reserva-role badge badge--role badge--role-${profile.role}`;
 }
 
-const MODALITY_TABS = ['Uso de espacios', 'Mis modalidades'];
+const MODALITY_TABS = ['Horario con modalidades', 'Uso de espacios', 'Mis modalidades'];
 
 function renderTabs(role) {
   const tabs = (TABS_BY_ROLE[role] || TABS_BY_ROLE.student)
@@ -104,6 +104,8 @@ async function init() {
     if (FEATURES.modalities) {
       const { mountUsoEspacios } = await import('./uso-espacios.js');
       await mountUsoEspacios(profile);
+      const { mountHorarioModalidades } = await import('./admin-horario-modalidades.js');
+      await mountHorarioModalidades(profile);
     }
   }
 

@@ -4,6 +4,10 @@ import {
   weekDays,
   todayIndexIn,
   formatWeekRange,
+  addWeeks,
+  mondayOf,
+  fromIsoDate,
+  toIsoDate,
 } from './week-utils.js';
 
 const GRADES = ['10mo', '11vo', '12vo'];
@@ -31,6 +35,8 @@ export { GRADES };
  *   grade: string,
  *   showGradeSelect: boolean,
  *   showPlanoLink: boolean,
+ *   showWeekSelect: boolean,
+ *   cardExtras: CardExtras | null,
  *   title: string | null,
  *   weekStart: string,
  *   slots: object[],
@@ -41,6 +47,19 @@ export { GRADES };
  *   channel: object | null,
  *   debounceTimer: ReturnType<typeof setTimeout> | null,
  * }} HorarioInstance
+ */
+
+/**
+ * Optional per-card add-on supplied by the caller. The default Horario passes
+ * none, so it fetches and renders exactly what it always did. `load` runs at
+ * the end of every refresh (after slots, names and spaces are in `inst`);
+ * `renderSlot` / `renderPart` return extra HTML appended inside each card.
+ *
+ * @typedef {{
+ *   load: (inst: HorarioInstance) => Promise<void>,
+ *   renderSlot: (inst: HorarioInstance, slot: object) => string,
+ *   renderPart: (inst: HorarioInstance, slot: object, part: object) => string,
+ * }} CardExtras
  */
 
 /** Live instances, so a re-mount can tear down its predecessors. */
@@ -243,12 +262,24 @@ function buildPanelShell(inst) {
     </section>`
     : '';
 
+  const weekSelect = inst.showWeekSelect
+    ? `
+    <section class="horario-view-section horario-view-weekbar">
+      <button type="button" class="btn btn-ghost draft-btn-sm" data-week-step="-1" aria-label="Semana anterior">◀</button>
+      <label class="horario-view-grade-label" for="${inst.prefix}-week">Semana (lunes)</label>
+      <input type="date" class="input horario-view-week-input" id="${inst.prefix}-week" value="${inst.weekStart}">
+      <button type="button" class="btn btn-ghost draft-btn-sm" data-week-step="1" aria-label="Semana siguiente">▶</button>
+      <button type="button" class="btn btn-ghost draft-btn-sm" data-week-step="0">Esta semana</button>
+    </section>`
+    : '';
+
   return `
     ${heading}
     <div id="${inst.prefix}-alert" class="alert alert-error" hidden></div>
     <div id="${inst.prefix}-draft-banner" class="horario-view-draft-banner" hidden></div>
     ${planoLink}
     ${gradeSelect}
+    ${weekSelect}
     <section class="horario-view-section">
       <p id="${inst.prefix}-week-label" class="horario-week-label"></p>
       <div id="${inst.prefix}-grid" class="horario-grid"></div>
@@ -305,6 +336,7 @@ function renderGrid(inst) {
                       <span class="horario-slot-teacher">${escapeHtml(teacher)}</span>
                     </div>
                     ${spaceHtml}
+                    ${inst.cardExtras ? inst.cardExtras.renderPart(inst, slot, part) : ''}
                   </div>
                 `;
               })
@@ -339,6 +371,7 @@ function renderGrid(inst) {
                   <span class="horario-slot-teacher">${escapeHtml(teacher)}</span>
                 </div>
                 ${spaceHtml}
+                ${inst.cardExtras ? inst.cardExtras.renderSlot(inst, slot) : ''}
               </div>
             </article>
           `;
@@ -362,7 +395,8 @@ async function refresh(inst) {
   hideAlert(inst);
   // Recomputed on every refresh — the displayed week is pure client-side
   // display state, and it is also the key the reservations query uses.
-  inst.weekStart = displayWeekStart();
+  // With a week selector the chosen week is kept instead.
+  if (!inst.showWeekSelect) inst.weekStart = displayWeekStart();
   inst.slots = await fetchSlots(inst.grade);
   inst.teacherNames = await fetchProfileNameMap(
     inst.slots.flatMap((s) => [
@@ -376,6 +410,8 @@ async function refresh(inst) {
   const maps = buildSpaceMaps(reservations);
   inst.spaceBySlotId = maps.bySlot;
   inst.spaceByPartId = maps.byPart;
+
+  if (inst.cardExtras) await inst.cardExtras.load(inst);
 
   renderDraftBanner(inst);
   renderGrid(inst);
@@ -408,18 +444,48 @@ function subscribe(inst) {
     .subscribe();
 }
 
+async function reload(inst) {
+  hideAlert(inst);
+  try {
+    await refresh(inst);
+  } catch (err) {
+    showAlert(inst, err.message || 'No se pudo cargar el horario.');
+  }
+}
+
+function setWeek(inst, weekStartIso) {
+  inst.weekStart = weekStartIso;
+  const input = document.getElementById(`${inst.prefix}-week`);
+  if (input) input.value = weekStartIso;
+  reload(inst);
+}
+
 function wireEvents(inst, root) {
-  if (!inst.showGradeSelect) return;
-  root.addEventListener('change', async (e) => {
-    if (e.target.id !== `${inst.prefix}-grade`) return;
-    hideAlert(inst);
-    inst.grade = e.target.value;
-    try {
-      await refresh(inst);
-    } catch (err) {
-      showAlert(inst, err.message || 'No se pudo cargar el horario.');
-    }
-  });
+  if (inst.showGradeSelect) {
+    root.addEventListener('change', async (e) => {
+      if (e.target.id !== `${inst.prefix}-grade`) return;
+      hideAlert(inst);
+      inst.grade = e.target.value;
+      try {
+        await refresh(inst);
+      } catch (err) {
+        showAlert(inst, err.message || 'No se pudo cargar el horario.');
+      }
+    });
+  }
+
+  if (inst.showWeekSelect) {
+    root.addEventListener('change', (e) => {
+      if (e.target.id !== `${inst.prefix}-week` || !e.target.value) return;
+      setWeek(inst, toIsoDate(mondayOf(fromIsoDate(e.target.value))));
+    });
+    root.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-week-step]');
+      if (!btn || !root.contains(btn)) return;
+      const step = Number(btn.dataset.weekStep);
+      setWeek(inst, step === 0 ? displayWeekStart() : addWeeks(inst.weekStart, step));
+    });
+  }
 }
 
 /**
@@ -434,6 +500,8 @@ export async function mountHorarioGrid({
   grade = '10mo',
   showGradeSelect = false,
   showPlanoLink = false,
+  showWeekSelect = false,
+  cardExtras = null,
   title = null,
 }) {
   const existing = instances.get(prefix);
@@ -446,6 +514,8 @@ export async function mountHorarioGrid({
     grade,
     showGradeSelect,
     showPlanoLink,
+    showWeekSelect,
+    cardExtras,
     title,
     weekStart: displayWeekStart(),
     slots: [],

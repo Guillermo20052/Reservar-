@@ -3957,3 +3957,64 @@ button:active { transform: scale(.975); }
   .uso-bar-row { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 3rem; }
   .uso-heat-timeline .uso-heat-rowhd { min-width: 160px; }
 }
+
+/* ---------------------------------------------------------------------------
+   Admin "Horario con modalidades": week bar + modality chips on class cards
+   --------------------------------------------------------------------------- */
+.horario-view-weekbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.horario-view-weekbar .horario-view-grade-label { flex-basis: 100%; margin: 0; }
+.horario-view-week-input { width: auto; max-width: 11rem; }
+
+.horario-mod-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.horario-mod-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.horario-mod-teacher {
+  width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.horario-view-slot .chip.horario-mod-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 1.25;
+  padding: 3px 8px 3px 3px;
+  border-radius: 999px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  white-space: normal;
+  text-align: left;
+}
+.horario-mod-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--navy);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+.horario-view-slot .chip.horario-mod-empty { font-size: 11px; }
