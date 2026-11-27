@@ -24,14 +24,14 @@ const ERROR_MESSAGES = {
   'invalid slot part': 'Parte de franja no válida.',
   'part not allowed for single slot': 'Esta franja no admite partes.',
   'invalid pick index': 'Selección de espacio no válida.',
-  'elige 2 o 3 modalidades': 'Elige 2 o 3 modalidades.',
+  'elige al menos 1 modalidad': 'Elige al menos 1 modalidad.',
   'modalidades repetidas': 'Hay modalidades repetidas.',
   'modalidad no válida': 'Modalidad no válida.',
   'solo docentes pueden registrar modalidades': 'Solo las maestras pueden registrar modalidades.',
 };
 
-const MIN_MODALITIES = 2;
-const MAX_MODALITIES = 3;
+/** Any number of the 20 modalities per class, at least 1 (no upper cap). */
+const MIN_MODALITIES = 1;
 
 /** @type {{
  *   profile: object | null,
@@ -373,7 +373,7 @@ function displayedModalities(key) {
 }
 
 function isValidModalitySet(ids) {
-  return ids.length >= MIN_MODALITIES && ids.length <= MAX_MODALITIES;
+  return ids.length >= MIN_MODALITIES;
 }
 
 /** A class is complete only when its saved set is valid and no invalid local edit is pending. */
@@ -514,7 +514,6 @@ function renderModalityPicker(item) {
   const complete = isItemComplete(item);
   const saving = Boolean(state.modalitySaving[key]);
   const open = state.pickerOpen[key] ?? !complete;
-  const full = selected.length >= MAX_MODALITIES;
   const partAttr = item.part_id ? ` data-part-id="${item.part_id}"` : '';
 
   let status;
@@ -522,8 +521,6 @@ function renderModalityPicker(item) {
     status = '<span class="reservar-modal-status reservar-modal-status--saving">Guardando…</span>';
   } else if (complete) {
     status = `<span class="reservar-modal-status reservar-modal-status--ok">✓ ${selected.map((id) => escapeHtml(`${id} · ${modalityName(id)}`)).join(' · ')}</span>`;
-  } else if (selected.length && selected.length < MIN_MODALITIES) {
-    status = `<span class="reservar-modal-status reservar-modal-status--warn">Elige al menos ${MIN_MODALITIES} (${selected.length}/${MAX_MODALITIES})</span>`;
   } else {
     status = '<span class="reservar-modal-status reservar-modal-status--warn">⚠ Faltan modalidades</span>';
   }
@@ -531,8 +528,7 @@ function renderModalityPicker(item) {
   const chips = state.modalities
     .map((m) => {
       const isOn = selected.includes(m.id);
-      const disabled = !isOn && full ? ' disabled' : '';
-      return `<button type="button" class="reservar-modal-chip${isOn ? ' is-selected' : ''}" data-slot-id="${item.slot_id}"${partAttr} data-mod-id="${m.id}" aria-pressed="${isOn}"${disabled}><span class="reservar-modal-num">${m.id}</span>${escapeHtml(m.name)}</button>`;
+      return `<button type="button" class="reservar-modal-chip${isOn ? ' is-selected' : ''}" data-slot-id="${item.slot_id}"${partAttr} data-mod-id="${m.id}" aria-pressed="${isOn}"><span class="reservar-modal-num">${m.id}</span>${escapeHtml(m.name)}</button>`;
     })
     .join('');
 
@@ -542,7 +538,7 @@ function renderModalityPicker(item) {
         <span class="reservar-modal-hd">Modalidades de enseñanza</span>
         ${status}
       </summary>
-      <p class="reservar-modal-hint">Elige 2 o 3 modalidades de Nair para esta clase · ${selected.length}/${MAX_MODALITIES} seleccionadas</p>
+      <p class="reservar-modal-hint">Elige las que vas a usar en esta clase · ${selected.length} ${selected.length === 1 ? 'seleccionada' : 'seleccionadas'}</p>
       <div class="reservar-modal-chips" role="group" aria-label="Modalidades para ${escapeHtml(item.class_name)}">${chips}</div>
     </details>
   `;
@@ -552,7 +548,7 @@ function renderModalityWarning() {
   const missing = incompleteItems().length;
   if (!missing || !state.modalities.length) return '<div id="reservar-modal-warning"></div>';
   const noun = missing === 1 ? 'clase' : 'clases';
-  return `<div id="reservar-modal-warning" class="alert reservar-modal-warning" role="status">⚠ Te faltan modalidades de enseñanza en <strong>${missing} ${noun}</strong>. Elige 2 o 3 en cada clase.</div>`;
+  return `<div id="reservar-modal-warning" class="alert reservar-modal-warning" role="status">⚠ Te faltan modalidades de enseñanza en <strong>${missing} ${noun}</strong>. Elige las que vas a usar en cada clase.</div>`;
 }
 
 function rerenderModalityPicker(key) {
@@ -790,7 +786,6 @@ function handleModalityChipClick(chip) {
   if (idx >= 0) {
     current.splice(idx, 1);
   } else {
-    if (current.length >= MAX_MODALITIES) return;
     current.push(modId);
   }
   current.sort((a, b) => a - b);
@@ -873,7 +868,7 @@ function askConfirmWithMissingModalities(missingCount) {
   const overlay = ensureModalityPromptModal();
   const noun = missingCount === 1 ? '1 clase' : `${missingCount} clases`;
   overlay.querySelector('#reservar-modal-prompt-text').textContent =
-    `Tienes ${noun} sin modalidades de enseñanza (2 o 3 por clase). Puedes confirmar ahora y completarlas después mientras el registro siga abierto.`;
+    `Tienes ${noun} sin modalidades de enseñanza (elige las que vas a usar en cada clase). Puedes confirmar ahora y completarlas después mientras el registro siga abierto.`;
   overlay.hidden = false;
 
   return new Promise((resolve) => {

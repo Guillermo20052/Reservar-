@@ -7,7 +7,7 @@
  *                                locked to the signed-in teacher.
  *
  * Data: reservations (one row per space pick, week-scoped) + class_modalities
- * (one row per teacher + class + week, 2–3 modality ids). A "class" is the
+ * (one row per teacher + class + week, 1–20 modality ids). A "class" is the
  * tuple (week_start, slot_id, slot_part_id, teacher_id); it may have 0–2
  * space picks and 0 or 1 modality set. Modality names come from
  * public.modalities (seeded verbatim from the guide's DATA.modalidades).

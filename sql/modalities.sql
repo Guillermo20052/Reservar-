@@ -1,7 +1,8 @@
 -- Learning modalities per class reservation (Prakash Nair's 20 modalities)
 -- ---------------------------------------------------------------------------
 -- Tracks HOW a teacher uses her spaces each week: for every class she teaches
--- in a draft week she records 2–3 of Nair's 20 learning modalities.
+-- in a draft week she records 1–20 of Nair's 20 learning modalities (was 2–3;
+-- see sql/modalities_any_count.sql for the live change).
 --
 --   public.modalities        id 1–20 (Nair number) + name. Seeded VERBATIM from
 --                            DATA.modalidades in index.html (array index + 1).
@@ -89,7 +90,7 @@ CREATE TABLE IF NOT EXISTS public.class_modalities (
   modality_ids  smallint[] NOT NULL,
   updated_at    timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT class_modalities_count_chk
-    CHECK (cardinality(modality_ids) BETWEEN 2 AND 3),
+    CHECK (cardinality(modality_ids) BETWEEN 1 AND 20),
   CONSTRAINT class_modalities_distinct_chk
     CHECK (public.smallint_array_distinct_nonnull(modality_ids)),
   CONSTRAINT class_modalities_class_unique
@@ -170,9 +171,11 @@ BEGIN
     RAISE EXCEPTION 'solo docentes pueden registrar modalidades';
   END IF;
 
-  -- 2–3 distinct, valid modality ids.
-  IF p_modality_ids IS NULL OR array_position(p_modality_ids, NULL) IS NOT NULL THEN
-    RAISE EXCEPTION 'elige 2 o 3 modalidades';
+  -- At least 1 (up to all 20) distinct, valid modality ids.
+  IF p_modality_ids IS NULL
+     OR cardinality(p_modality_ids) = 0
+     OR array_position(p_modality_ids, NULL) IS NOT NULL THEN
+    RAISE EXCEPTION 'elige al menos 1 modalidad';
   END IF;
 
   SELECT array_agg(DISTINCT x ORDER BY x) INTO v_ids FROM unnest(p_modality_ids) AS x;
@@ -181,8 +184,8 @@ BEGIN
     RAISE EXCEPTION 'modalidades repetidas';
   END IF;
 
-  IF cardinality(v_ids) NOT BETWEEN 2 AND 3 THEN
-    RAISE EXCEPTION 'elige 2 o 3 modalidades';
+  IF cardinality(v_ids) NOT BETWEEN 1 AND 20 THEN
+    RAISE EXCEPTION 'elige al menos 1 modalidad';
   END IF;
 
   IF EXISTS (
