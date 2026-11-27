@@ -1,5 +1,6 @@
 import { supabase } from './supabase.js';
 import { formatWeekStart } from './week-utils.js';
+import { FEATURES } from './features.js';
 
 const WEEKDAY_LABELS = {
   lunes: 'Lunes',
@@ -598,7 +599,7 @@ function renderItemRow(item, ui) {
         <span class="reservar-slot-meta">${escapeHtml(item.grade)} · ${dayLabel} · ${timeRange}</span>
       </div>
       <div class="reservar-slot-pick">${spaceControl}</div>
-      ${state.modalities.length ? renderModalityPicker(item) : ''}
+      ${FEATURES.modalities && state.modalities.length ? renderModalityPicker(item) : ''}
     </li>
   `;
 }
@@ -699,7 +700,7 @@ function renderContent() {
   root.innerHTML = `
     ${renderBanner(ui)}
     ${renderWeekLine()}
-    ${renderModalityWarning()}
+    ${FEATURES.modalities ? renderModalityWarning() : ''}
     <section class="reservar-slots-section">
       <h3 class="reservar-section-title">Tus franjas</h3>
       <ul class="reservar-slot-list">${itemRows}</ul>
@@ -909,7 +910,7 @@ async function handleConfirm(e) {
     return;
   }
 
-  const missing = state.modalities.length ? incompleteItems().length : 0;
+  const missing = FEATURES.modalities && state.modalities.length ? incompleteItems().length : 0;
   if (missing) {
     const proceed = await askConfirmWithMissingModalities(missing);
     if (!proceed) {
@@ -943,7 +944,7 @@ async function refresh() {
     state.advanceAttemptedFor = null;
   }
 
-  if (!state.modalities.length) {
+  if (FEATURES.modalities && !state.modalities.length) {
     try {
       state.modalities = await fetchModalities();
     } catch (_) {

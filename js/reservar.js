@@ -1,4 +1,5 @@
 import { requireAuth, getProfile, signOut } from './auth.js';
+import { FEATURES } from './features.js';
 
 const TABS_BY_ROLE = {
   student: ['Horario', 'Espacios de estudio'],
@@ -23,8 +24,11 @@ function renderHeader(profile) {
   roleEl.className = `reserva-role badge badge--role badge--role-${profile.role}`;
 }
 
+const MODALITY_TABS = ['Uso de espacios', 'Mis modalidades'];
+
 function renderTabs(role) {
-  const tabs = TABS_BY_ROLE[role] || TABS_BY_ROLE.student;
+  const tabs = (TABS_BY_ROLE[role] || TABS_BY_ROLE.student)
+    .filter((label) => FEATURES.modalities || !MODALITY_TABS.includes(label));
   const tabBar = document.getElementById('reserva-tabs');
   const panelsRoot = document.getElementById('reserva-panels');
 
@@ -97,8 +101,10 @@ async function init() {
     await mountReservacionesSemanales(profile);
     const { mountAdminStudySpaces } = await import('./admin-study-spaces.js');
     await mountAdminStudySpaces(profile);
-    const { mountUsoEspacios } = await import('./uso-espacios.js');
-    await mountUsoEspacios(profile);
+    if (FEATURES.modalities) {
+      const { mountUsoEspacios } = await import('./uso-espacios.js');
+      await mountUsoEspacios(profile);
+    }
   }
 
   if (profile.role === 'teacher') {
@@ -106,8 +112,10 @@ async function init() {
     await mountTeacherProfile(profile);
     const { mountReservarEspacio } = await import('./teacher-reservar.js');
     await mountReservarEspacio(profile);
-    const { mountMisModalidades } = await import('./uso-espacios.js');
-    await mountMisModalidades(profile);
+    if (FEATURES.modalities) {
+      const { mountMisModalidades } = await import('./uso-espacios.js');
+      await mountMisModalidades(profile);
+    }
   }
 }
 
