@@ -6,5 +6,5 @@
 //   database side (modalities, class_modalities, set_class_modalities) stays
 //   in place either way.
 export const FEATURES = {
-  modalities: true,
+  modalities: false,
 };
