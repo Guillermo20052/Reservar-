@@ -377,11 +377,13 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--navy); }
 
 /* positive / settled: green */
 .badge--approved,
+.badge--active,
 .badge--done,
 .badge--state-open,
 .badge--phase-open,
 .study-book-status-approved,
 .study-admin-status-approved,
+.study-admin-badge-active,
 .draft-badge-done,
 .draft-phase-open {
   background: var(--ok-soft);
@@ -390,10 +392,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--navy); }
 }
 
 /* current / on: brand tint */
-.badge--active,
 .badge--role-teacher,
 .usuarios-badge-teacher,
-.study-admin-badge-active,
 .draft-week-chip {
   background: var(--brand-soft);
   border-color: var(--bd);
@@ -1747,8 +1747,19 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--navy); }
 }
 
 .reservar-modal-summary::-webkit-details-marker { display: none; }
-.reservar-modal-summary::before { content: '▸'; color: var(--ink-soft); font-size: 12px; transition: transform var(--dur-1); }
-.reservar-modal-picker[open] > .reservar-modal-summary::before { transform: rotate(90deg); }
+.reservar-modal-summary::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin: 0 4px 0 2px;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  transform: rotate(-45deg);
+  transition: transform var(--dur-1);
+}
+
+.reservar-modal-picker[open] > .reservar-modal-summary::before { transform: rotate(45deg); }
 .reservar-modal-hd { font-size: var(--fs-sm); font-weight: 700; color: var(--ink); }
 .reservar-modal-status { font-size: var(--fs-sm); }
 .reservar-modal-status--ok { color: var(--ok); font-weight: 600; }
@@ -1805,13 +1816,16 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--navy); }
 .draft-subtitle { margin: 0 0 10px; font-size: var(--fs-sm); font-weight: 700; color: var(--ink-soft); }
 
 .draft-viewbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-2);
+  display: inline-flex;
+  gap: 4px;
   margin: 0 0 var(--sp-4);
-  padding-bottom: var(--sp-3);
-  border-bottom: 1px solid var(--line);
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--mist);
 }
+
+.draft-viewbar .tab { flex: 0 0 auto; min-width: 120px; }
 
 .draft-weekbar {
   display: flex;
@@ -1922,16 +1936,24 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--navy); }
 
 .usuarios-list { display: flex; flex-direction: column; gap: 8px; }
 
+/* Rows read like a table: name · role badge · code | role · space · delete */
 .usuarios-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px 16px;
+  gap: 10px 24px;
 }
 
-.usuarios-row-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; flex: 1 1 260px; min-width: 0; }
-.usuarios-name-block { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; min-width: 140px; }
+.usuarios-row-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 140px 72px;
+  align-items: center;
+  gap: 8px 12px;
+  min-width: 0;
+}
+
+.usuarios-name-block { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; min-width: 0; }
+.usuarios-badge { justify-self: start; }
 .usuarios-name { font-size: var(--fs-base); font-weight: 700; color: var(--ink); overflow-wrap: anywhere; }
 .usuarios-id, .usuarios-you { font-size: var(--fs-xs); color: var(--faint); }
 .usuarios-you { font-weight: 700; color: var(--brand-ink); }
@@ -1940,9 +1962,21 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--navy); }
 .teacher-code-value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 700; color: var(--ink); }
 
 .usuarios-code { min-width: 4.5em; font-size: var(--fs-sm); }
-.usuarios-row-control { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.usuarios-role-select { min-width: 160px; margin: 0; }
-.usuarios-space-select { max-width: 220px; }
+.usuarios-row-control {
+  display: grid;
+  grid-template-columns: auto 152px auto 172px 84px;
+  align-items: center;
+  gap: 8px;
+}
+
+.usuarios-row-control .usuarios-role-label { white-space: nowrap; }
+.usuarios-role-select { min-width: 0; margin: 0; }
+.usuarios-space-select { min-width: 0; max-width: none; }
+
+@media (max-width: 1180px) {
+  .usuarios-row { grid-template-columns: minmax(0, 1fr); }
+  .usuarios-row-control { grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) auto; }
+}
 .usuarios-row .input { min-height: var(--control-h-sm); padding-top: 7px; padding-bottom: 7px; font-size: 14px; }
 
 /* ---------- 5.6 Mi perfil (maestra) ---------- */
@@ -2027,7 +2061,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--navy); }
 .study-book-own-linked,
 .study-book-own-when,
 .study-admin-space-meta,
-.study-admin-booking-role,
+.study-admin-booking-role:not(.badge),
 .study-admin-booking-linked,
 .study-admin-booking-when { font-size: var(--fs-sm); font-variant-numeric: tabular-nums; color: var(--ink-soft); }
 
@@ -2330,13 +2364,17 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--navy); }
   .horario-view-week-input { max-width: none; }
 
   /* Rows: content first, controls underneath at full width. */
-  .usuarios-row-control { flex: 1 1 100%; }
-  .usuarios-row-control .input { flex: 1 1 140px; min-width: 0; }
+  .usuarios-row-main { grid-template-columns: auto minmax(0, 1fr); }
+  .usuarios-name-block { grid-column: 1 / -1; }
+  .usuarios-row-control { grid-template-columns: auto minmax(0, 1fr); gap: 8px 12px; }
+  .usuarios-delete-btn { grid-column: 1 / -1; justify-self: end; min-width: 120px; }
   .draft-turn-row { grid-template-columns: auto minmax(0, 1fr) auto; }
   .draft-turn-picks { grid-column: 2 / -1; white-space: normal; }
   .draft-live-header { align-items: flex-start; }
   .draft-countdown-wrap { align-items: flex-start; }
   .draft-order-buttons .btn { flex: 1 1 auto; }
+  .draft-viewbar { display: flex; }
+  .draft-viewbar .tab { flex: 1; min-width: 0; }
 
   .uso-filter { max-width: none; }
   .uso-bar-row { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) 3rem; }
