@@ -2381,7 +2381,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--navy); }
   .uso-heat-timeline .uso-heat-rowhd { min-width: 160px; }
 
   .study-tl { padding: 12px 12px 10px; }
-  .study-tl-inner { min-width: 900px; }   /* ~40px per half hour */
+  .study-tl-inner { min-width: 920px; }   /* > 40px per half hour */
 
   .reservar-success-dialog,
   .horario-confirm-dialog { padding: var(--sp-5); }
