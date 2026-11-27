@@ -235,6 +235,11 @@ function buildPanelShell() {
           <label for="study-book-date">Fecha</label>
           <input class="input" id="study-book-date" type="date" required>
         </div>
+        <div id="study-book-timeline" class="study-tl" hidden></div>
+        <div id="study-book-taken-wrap" class="study-book-taken-wrap" hidden>
+          <p class="study-book-taken-title">Horarios ocupados en esta fecha</p>
+          <ul id="study-book-taken-list" class="study-book-taken-list"></ul>
+        </div>
         <div class="form-group study-book-field">
           <label for="study-book-start">Hora de inicio</label>
           <input class="input" id="study-book-start" type="time" required>
@@ -248,11 +253,6 @@ function buildPanelShell() {
           </select>
         </div>
         <div id="study-book-student-cap" class="study-book-student-cap" hidden></div>
-        <div id="study-book-timeline" class="study-tl" hidden></div>
-        <div id="study-book-taken-wrap" class="study-book-taken-wrap" hidden>
-          <p class="study-book-taken-title">Horarios ocupados en esta fecha</p>
-          <ul id="study-book-taken-list" class="study-book-taken-list"></ul>
-        </div>
         <button type="submit" class="btn btn-primary">${staff ? 'Reservar' : 'Solicitar'}</button>
       </form>
     </section>

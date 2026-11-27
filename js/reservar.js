@@ -57,6 +57,18 @@ function switchTab(tabId) {
   document.querySelectorAll('#reserva-panels .panel').forEach((panel) => {
     panel.classList.toggle('active', panel.id === `panel-${tabId}`);
   });
+  revealActiveTab();
+}
+
+// Presentation only: on phones the tab bar scrolls sideways, so keep the
+// selected tab in view. Scrolls the bar itself, never the page.
+function revealActiveTab() {
+  const bar = document.getElementById('reserva-tabs');
+  const active = bar?.querySelector('.tab.active');
+  if (!bar || !active || bar.scrollWidth <= bar.clientWidth) return;
+  const offset = active.getBoundingClientRect().left - bar.getBoundingClientRect().left + bar.scrollLeft;
+  const left = offset - (bar.clientWidth - active.offsetWidth) / 2;
+  bar.scrollTo({ left: Math.max(0, left), behavior: 'auto' });
 }
 
 function wireLogout() {
